@@ -1,7 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
 import type React from "react"
-
 import { useRouter } from "next/navigation"
 import { verificarCedula } from "../../lib/apiUsuarios"
 import { supabase } from "../../lib/supabaseClient"
@@ -12,8 +11,12 @@ export default function Register() {
   const [loadingCedula, setLoadingCedula] = useState(false)
   const [datosCargados, setDatosCargados] = useState(false)
   const [usuarioEncontrado, setUsuarioEncontrado] = useState(false)
-  const [showModal, setShowModal] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [cedulaRegistradaSupabase, setCedulaRegistradaSupabase] = useState(false)
+
+  // Estados para controlar los pop-ups y sus mensajes
+  const [popupMessage, setPopupMessage] = useState("")
+  const [showPopup, setShowPopup] = useState(false)
 
   const [form, setForm] = useState({
     nombre1: "",
@@ -36,31 +39,68 @@ export default function Register() {
         setLoading(false)
       }
     }
-    checkSession()
-  }, [router])
+    checkSession() // <-- ¡CORRECCIÓN: Llamada a la función con paréntesis!
+  }, [router]) // <-- ¡CORRECCIÓN: Dependencia corregida a "router"!
 
   const handleCedulaCheck = async () => {
+    // **Validación de Cédula Obligatoria**
+    if (!cedula || cedula.trim() === "") {
+      showPopupMessage("¡Debes ingresar un número de cédula para validar! 📝");
+      return; // Detener la función si la cédula está vacía
+    }
+
+    setCedulaRegistradaSupabase(false)
     setLoadingCedula(true)
-    setShowModal(false)
 
     try {
-      const res = await verificarCedula(cedula)
-      setLoadingCedula(false)
+      const res = await verificarCedula(cedula);
+      setLoadingCedula(false);
 
       if (!res.success || !res.data) {
-        setShowModal(true)
-        return
+        setDatosCargados(true);
+        setUsuarioEncontrado(false);
+        setForm({
+          ...form,
+          tipo_documento: "Cédula de Ciudadanía",
+        });
+        return;
       }
 
-      const userData = res.data
+      const { data: existingUser, error: dbError } = await supabase
+        .from("usuarios")
+        .select("*")
+        .eq("cedula", cedula)
+
+      if (dbError) {
+        throw dbError;
+      }
+
+      if (existingUser && existingUser.length > 0) {
+        setCedulaRegistradaSupabase(true);
+        // **Mostrar mensaje de cédula registrada en pop-up**
+        showPopupMessage("Esta cédula ya se encuentra registrada. ⛔");
+        return;
+      }
+
+      const userData = res.data;
 
       if (!userData.e_mail || userData.e_mail.trim() === "") {
-        setShowModal(true)
-        return
+        setDatosCargados(true);
+        setUsuarioEncontrado(false);
+        setForm({
+          ...form,
+          nombre1: userData.nom1_cli || "",
+          nombre2: userData.nom2_cli || "",
+          apellido1: userData.ap1_cli || "",
+          apellido2: userData.ap2_cli || "",
+          telefono: userData.te1_cli || userData.te2_cli || "",
+          tipo_documento: userData.tip_ide === "01" ? "Cédula de Ciudadanía" : "Cédula de Extranjería",
+        });
+        return;
       }
 
-      setDatosCargados(true)
-      setUsuarioEncontrado(true)
+      setDatosCargados(true);
+      setUsuarioEncontrado(true);
 
       setForm({
         nombre1: userData.nom1_cli || "",
@@ -72,12 +112,14 @@ export default function Register() {
         tipo_documento: userData.tip_ide === "01" ? "Cédula de Ciudadanía" : "Cédula de Extranjería",
         password: "",
         confirmPassword: "",
-      })
-    } catch (error) {
-      setLoadingCedula(false)
-      setShowModal(true)
+      });
+    } catch (error: any) {
+      setLoadingCedula(false);
+      setDatosCargados(true);
+      setUsuarioEncontrado(false);
+      showPopupMessage(`Error al verificar cédula ⚠️: ${error.message}`);
     }
-  }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -87,13 +129,13 @@ export default function Register() {
     e.preventDefault()
 
     if (form.password !== form.confirmPassword) {
-      alert("Las contraseñas no coinciden.")
-      return
+      showPopupMessage("¡Las contraseñas no coinciden! 🙁 Por favor, verifica.");
+      return;
     }
 
     if (!form.correo) {
-      alert("Error: No se obtuvo un correo válido de la API externa.")
-      return
+      showPopupMessage("¡Necesitas un correo electrónico válido! 📧");
+      return;
     }
 
     try {
@@ -111,9 +153,9 @@ export default function Register() {
             cedula: cedula,
           },
         },
-      })
+      });
 
-      if (error) throw error
+      if (error) throw error;
 
       const { error: dbError } = await supabase.from("usuarios").insert([
         {
@@ -126,16 +168,35 @@ export default function Register() {
           correo: form.correo,
           telefono: form.telefono,
         },
-      ])
+      ]);
 
-      if (dbError) throw dbError
+      if (dbError) throw dbError;
 
-      alert("Registro exitoso. Verifica tu correo para completar el proceso.")
-      router.push("/auth/login")
+      showPopupMessage("¡Registro exitoso! 🎉 Revisa tu correo para completar el proceso.");
+      router.push("/auth/login");
     } catch (error: any) {
-      alert(error.message)
+      if (error.message.includes('AuthApiError: Email already registered')) {
+        showPopupMessage("¡Este correo ya está registrado! 😥 Intenta con otro.");
+      } else {
+        showPopupMessage(`Error al registrar 😞: ${error.message}`);
+      }
     }
   }
+
+  const showPopupMessage = (message: string) => {
+    setPopupMessage(message);
+    setShowPopup(true);
+  };
+
+  const closePopup = () => {
+    setShowPopup(false);
+    setPopupMessage("");
+    if (cedulaRegistradaSupabase) {
+      setCedula(""); // Limpiar el campo de cédula al cerrar el popup de cédula registrada
+      setCedulaRegistradaSupabase(false); // Resetear el estado
+    }
+  };
+
 
   if (loading) {
     return <p className="text-center text-gray-600">Cargando...</p>
@@ -143,6 +204,42 @@ export default function Register() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+
+      {/* Pop-up Alert */}
+      {showPopup && (
+        <div className="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                      Mensaje
+                    </h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        {popupMessage}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={closePopup}
+                >
+                  Aceptar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Registro</h2>
@@ -168,56 +265,73 @@ export default function Register() {
           </div>
         )}
 
-        {datosCargados && usuarioEncontrado && (
+
+        {datosCargados && (
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             <div className="rounded-md shadow-sm -space-y-px">
               <div>
                 <input
                   name="nombre1"
+                  placeholder="Primer Nombre"
                   value={form.nombre1}
+                  onChange={handleInputChange}
                   className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  disabled
+                  disabled={usuarioEncontrado}
+                  required
                 />
               </div>
               <div>
                 <input
                   name="nombre2"
+                  placeholder="Segundo Nombre"
                   value={form.nombre2}
+                  onChange={handleInputChange}
                   className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  disabled
+                  disabled={usuarioEncontrado}
                 />
               </div>
               <div>
                 <input
                   name="apellido1"
+                  placeholder="Primer Apellido"
                   value={form.apellido1}
+                  onChange={handleInputChange}
                   className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  disabled
+                  disabled={usuarioEncontrado}
+                  required
                 />
               </div>
               <div>
                 <input
                   name="apellido2"
+                  placeholder="Segundo Apellido"
                   value={form.apellido2}
+                  onChange={handleInputChange}
                   className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  disabled
+                  disabled={usuarioEncontrado}
                 />
               </div>
               <div>
                 <input
                   name="correo"
                   type="email"
+                  placeholder="Correo Electrónico"
                   value={form.correo}
+                  onChange={handleInputChange}
                   className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  disabled
+                  disabled={usuarioEncontrado}
+                  required
                 />
               </div>
               <div>
                 <input
                   name="telefono"
+                  placeholder="Teléfono"
                   value={form.telefono}
+                  onChange={handleInputChange}
                   className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  disabled
+                  disabled={usuarioEncontrado}
+                  required
                 />
               </div>
               <div>
@@ -254,47 +368,7 @@ export default function Register() {
             </div>
           </form>
         )}
-
-        {showModal && (
-          <div
-            className="fixed inset-0 z-10 overflow-y-auto"
-            aria-labelledby="modal-title"
-            role="dialog"
-            aria-modal="true"
-          >
-            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-              <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
-              <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
-                &#8203;
-              </span>
-              <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-                <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                  <div className="sm:flex sm:items-start">
-                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                      <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
-                        No hay historial de créditos
-                      </h3>
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-500">Te invitamos a que adquieras tu primer crédito con ORPA</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                  <button
-                    type="button"
-                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm"
-                    onClick={() => (window.location.href = "https://orpainversiones.com/")}
-                  >
-                    Aceptar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
 }
-

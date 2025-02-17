@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <div
       className="flex flex-col items-center justify-center min-h-screen bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: "url('/placeholder.svg?height=1080&width=1920')" }}
+      style={{ backgroundImage: "url('https://img.freepik.com/vector-gratis/lineas-negras-abstractas-fondo-geometrico_677411-2748.jpg?t=st=1739832855~exp=1739836455~hmac=fa916690c1fc4574d785dffcf63aa5455b9bcfa4488147cc5b51e7a2d7414775&w=1380')" }}
     >
       <div className="absolute inset-0 bg-black opacity-50"></div>
       <div className="z-10 flex flex-col items-center justify-center min-h-screen p-6">
