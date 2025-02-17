@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 
@@ -8,48 +8,62 @@ export default function Login() {
   const [cedula, setCedula] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // ✅ **Verificar usuario en la base de datos**
+  // ✅ **Bloquear acceso si hay sesión activa**
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        router.push("/perfil"); // Redirige al perfil si ya está autenticado
+      } else {
+        setLoading(false);
+      }
+    };
+    checkSession();
+  }, [router]);
+
+  // ✅ **Manejar el inicio de sesión con cédula y clave**
   const handleLogin = async (e: any) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
     try {
-      // 🔹 **Verificar si la cédula existe en la tabla de usuarios**
-      const { data: userData, error: userError } = await supabase
+      // 🔹 **Buscar el correo asociado a la cédula en Supabase**
+      const { data: user, error: userError } = await supabase
         .from("usuarios")
         .select("correo")
         .eq("cedula", cedula)
         .single();
 
-      if (userError || !userData) {
+      if (userError || !user) {
         setError("Cédula no encontrada.");
-        setLoading(false);
         return;
       }
 
-      // ✅ **Si existe, iniciar sesión con el correo asociado**
+      const correo = user.correo;
+
+      // 🔹 **Iniciar sesión en Supabase Authentication**
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email: userData.correo.trim().toLowerCase(),
+        email: correo,
         password,
       });
 
       if (authError) {
-        setError("Error en la autenticación. Verifica tus credenciales.");
-        setLoading(false);
+        setError("Credenciales incorrectas. Inténtalo de nuevo.");
         return;
       }
 
-      // 🚀 **Redirigir al usuario después del inicio de sesión**
       router.push("/perfil");
-    } catch (error: any) {
-      setError("Error al iniciar sesión.");
-    } finally {
-      setLoading(false);
+    } catch (err: any) {
+      setError("Error en el inicio de sesión. Inténtalo más tarde.");
     }
   };
+
+  // **Esperar validación de sesión antes de mostrar el formulario**
+  if (loading) {
+    return <p className="text-center">Cargando...</p>;
+  }
 
   return (
     <div className="p-6 max-w-md mx-auto">
@@ -57,10 +71,10 @@ export default function Login() {
 
       {error && <p className="text-red-500 text-center">{error}</p>}
 
-      <form className="space-y-4" onSubmit={handleLogin}>
+      <form onSubmit={handleLogin} className="space-y-4">
         <input
           type="text"
-          placeholder="Número de Cédula"
+          placeholder="Cédula"
           value={cedula}
           onChange={(e) => setCedula(e.target.value)}
           className="w-full border p-2 rounded"
@@ -74,8 +88,8 @@ export default function Login() {
           className="w-full border p-2 rounded"
           required
         />
-        <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded" disabled={loading}>
-          {loading ? "Ingresando..." : "Ingresar"}
+        <button type="submit" className="w-full bg-blue-600 text-white p-2 rounded">
+          Ingresar
         </button>
       </form>
     </div>

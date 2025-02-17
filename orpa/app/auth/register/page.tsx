@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { verificarCedula } from "../../lib/apiUsuarios";
 import { supabase } from "../../lib/supabaseClient";
@@ -10,7 +10,8 @@ export default function Register() {
   const [loadingCedula, setLoadingCedula] = useState(false);
   const [datosCargados, setDatosCargados] = useState(false);
   const [usuarioEncontrado, setUsuarioEncontrado] = useState(false);
-  const [error, setError] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [form, setForm] = useState({
     nombre1: "",
@@ -24,39 +25,40 @@ export default function Register() {
     confirmPassword: "",
   });
 
-  // ✅ **Función para validar formato de correo**
-  const isValidEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
+  // ✅ **Bloquear acceso si hay sesión activa**
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        router.push("/perfil");
+      } else {
+        setLoading(false);
+      }
+    };
+    checkSession();
+  }, [router]);
 
   // ✅ **Verificar cédula en la API externa**
   const handleCedulaCheck = async () => {
     setLoadingCedula(true);
-    setError("");
+    setShowModal(false);
 
     try {
       const res = await verificarCedula(cedula);
       setLoadingCedula(false);
 
       if (!res.success || !res.data) {
-        setError("Actualmente no tienes historial de créditos. No puedes registrarte.");
-        setDatosCargados(false);
-        setUsuarioEncontrado(false);
+        setShowModal(true); // Ahora el modal se activa correctamente
         return;
       }
 
       const userData = res.data;
 
-      // 🔹 **Limpiar correo y validar formato**
-      const emailLimpio = userData.e_mail?.trim().toLowerCase() || "";
-
-      if (!emailLimpio || !isValidEmail(emailLimpio)) {
-        setError("Error: No se obtuvo un correo válido de la API externa.");
+      if (!userData.e_mail || userData.e_mail.trim() === "") {
+        setShowModal(true); // Mostrar modal en vez de mensaje rojo
         return;
       }
 
-      setError("");
       setDatosCargados(true);
       setUsuarioEncontrado(true);
 
@@ -66,15 +68,15 @@ export default function Register() {
         nombre2: userData.nom2_cli || "",
         apellido1: userData.ap1_cli || "",
         apellido2: userData.ap2_cli || "",
-        correo: emailLimpio,
+        correo: userData.e_mail.trim(),
         telefono: userData.te1_cli || userData.te2_cli || "",
         tipo_documento: userData.tip_ide === "01" ? "Cédula de Ciudadanía" : "Cédula de Extranjería",
         password: "",
         confirmPassword: "",
       });
     } catch (error) {
-      setError("Error al conectar con la API externa.");
       setLoadingCedula(false);
+      setShowModal(true); // Mostrar modal si hay error en la API
     }
   };
 
@@ -88,20 +90,18 @@ export default function Register() {
     e.preventDefault();
 
     if (form.password !== form.confirmPassword) {
-      setError("Las contraseñas no coinciden.");
+      alert("Las contraseñas no coinciden.");
       return;
     }
 
-    if (!form.correo || !isValidEmail(form.correo)) {
-      setError("Error: No se obtuvo un correo válido de la API externa.");
+    if (!form.correo) {
+      alert("Error: No se obtuvo un correo válido de la API externa.");
       return;
     }
-
-    setError("");
 
     try {
       // 🔹 **Registrar usuario en Authentication**
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: form.correo,
         password: form.password,
         options: {
@@ -119,7 +119,7 @@ export default function Register() {
 
       if (error) throw error;
 
-      // 🔹 **Guardar datos en la base de datos "usuarios" en Supabase**
+      // 🔹 **Guardar datos en Supabase**
       const { error: dbError } = await supabase.from("usuarios").insert([
         {
           cedula: cedula,
@@ -138,15 +138,17 @@ export default function Register() {
       alert("Registro exitoso. Verifica tu correo para completar el proceso.");
       router.push("/auth/login");
     } catch (error: any) {
-      setError(error.message);
+      alert(error.message);
     }
   };
+
+  if (loading) {
+    return <p className="text-center">Cargando...</p>;
+  }
 
   return (
     <div className="p-6 max-w-md mx-auto">
       <h2 className="text-2xl font-bold mb-4 text-center">Registro</h2>
-
-      {error && <p className="text-red-500 text-center">{error}</p>}
 
       {/* ✅ **Validar cédula en API Pruebas antes de mostrar el formulario** */}
       {!datosCargados && (
@@ -169,19 +171,37 @@ export default function Register() {
         </div>
       )}
 
-      {/* ✅ **Formulario completo solo si la cédula ya fue validada y existe en la API** */}
+      {/* ✅ **Formulario solo si la cédula ya fue validada y existe en la API** */}
       {datosCargados && usuarioEncontrado && (
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <input name="nombre1"  value={form.nombre1} className="w-full border p-2 rounded bg-gray-100" disabled />
+          <input name="nombre1" value={form.nombre1} className="w-full border p-2 rounded bg-gray-100" disabled />
           <input name="nombre2" value={form.nombre2} className="w-full border p-2 rounded bg-gray-100" disabled />
           <input name="apellido1" value={form.apellido1} className="w-full border p-2 rounded bg-gray-100" disabled />
           <input name="apellido2" value={form.apellido2} className="w-full border p-2 rounded bg-gray-100" disabled />
-          <input name="correo" value={form.correo} className="w-full border p-2 rounded bg-gray-100" disabled />
+          <input name="correo" type="email" value={form.correo} className="w-full border p-2 rounded bg-gray-100" disabled />
           <input name="telefono" value={form.telefono} className="w-full border p-2 rounded bg-gray-100" disabled />
           <input name="password" type="password" placeholder="Contraseña" value={form.password} onChange={handleInputChange} className="w-full border p-2 rounded" required />
           <input name="confirmPassword" type="password" placeholder="Confirmar Contraseña" value={form.confirmPassword} onChange={handleInputChange} className="w-full border p-2 rounded" required />
-          <button type="submit" className="w-full bg-green-600 text-white p-2 rounded">Registrarse</button>
+          <button type="submit" className="w-full bg-green-600 text-white p-2 rounded">
+            Registrarse
+          </button>
         </form>
+      )}
+
+      {/* ✅ **Modal cuando la cédula no tiene historial de crédito** */}
+      {showModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg text-center">
+            <h3 className="text-xl font-bold mb-4">No hay historial de créditos</h3>
+            <p>Te invitamos a que adquieras tu primer crédito con ORPA</p>
+            <button
+              onClick={() => (window.location.href = "https://orpainversiones.com/")}
+              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              Aceptar
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
