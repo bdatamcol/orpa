@@ -6,25 +6,48 @@ import { useRouter } from "next/navigation"
 export default function Perfil() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
-  const [nombre, setNombre] = useState("")
+  const [nombre, setNombre] = useState("Usuario") // Valor por defecto
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   useEffect(() => {
     const fetchUser = async () => {
       const { data, error } = await supabase.auth.getUser()
+
       if (error || !data?.user) {
-        router.push("/")
+        router.push("/") // Si no hay usuario, redirigir
+        return
+      }
+
+      setUser(data.user)
+      console.log("Usuario autenticado:", data.user)
+
+      // Obtener la cédula desde la sesión de Supabase
+      const cedula = data.user.user_metadata?.cedula
+      console.log("Buscando usuario con cédula:", cedula)
+
+      if (cedula) {
+        fetchUserName(cedula)
       } else {
-        setUser(data.user)
-        fetchUserName(data.user.email) // Obtener el nombre desde Supabase
+        console.warn("⚠ No se encontró cédula en la sesión del usuario")
       }
     }
 
-    const fetchUserName = async (email: string) => {
-      const { data, error } = await supabase.from("usuarios").select("nombre1").eq("correo", email).single()
-      if (!error && data) {
-        setNombre(capitalizeFirstLetter(data.nombre1)) // Aplicamos la función para formatear
+    const fetchUserName = async (cedula: string) => {
+      console.log("Buscando usuario con cédula en la base de datos:", cedula)
+
+      const { data, error } = await supabase
+        .from("usuarios")
+        .select("nombre1")
+        .eq("cedula", cedula)
+        .single()
+
+      if (error || !data) {
+        console.warn("⚠ No se encontró nombre para la cédula:", cedula)
+        return
       }
+
+      console.log("Nombre obtenido:", data.nombre1)
+      setNombre(capitalizeFirstLetter(data.nombre1)) // Aplicamos formato
     }
 
     fetchUser()
@@ -32,7 +55,7 @@ export default function Perfil() {
 
   // ✅ **Función para convertir solo la primera letra en mayúscula**
   const capitalizeFirstLetter = (text: string) => {
-    if (!text) return ""
+    if (!text) return "Usuario"
     return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
   }
 
@@ -103,7 +126,7 @@ export default function Perfil() {
             {user ? (
               <div className="bg-white rounded-lg shadow-lg p-6">
                 <p className="text-xl text-gray-700">
-                  Hola, <span className="font-semibold">{nombre || "Usuario"}</span>
+                  Hola, <span className="font-semibold">{nombre}</span>
                 </p>
               </div>
             ) : (
