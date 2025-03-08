@@ -1,56 +1,41 @@
-"use client";
-import { useState } from "react";
+'use client';
 
-export default function TestAPI() {
-  const [cedula, setCedula] = useState("");
-  const [resultado, setResultado] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+import { useEffect, useState } from 'react';
 
-  const handleCheck = async () => {
-    setLoading(true);
-    setError("");
-    setResultado(null);
+export default function TestApiPage() {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-    try {
-      const response = await fetch(`/api/verificarCedula?cedula=${cedula}`);
-      const data = await response.json();
+  useEffect(() => {
+    const fetchData = async () => {
+      const cedula = "1090178379"; // Puedes cambiar esto o pasarlo dinámicamente
+      try {
+        const response = await fetch(`/api/verificarCedula?cedula=${cedula}`);
+        const result = await response.json();
 
-      if (!response.ok) {
-        setError(data.error || "Error en la verificación");
-      } else {
-        setResultado(data);
+        if (!response.ok) {
+          throw new Error(result.error || "Error desconocido");
+        }
+
+        setData(result.data);
+      } catch (error: any) {
+        setError(error.message);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError("Error al conectar con el servidor");
-    }
+    };
 
-    setLoading(false);
-  };
+    fetchData();
+  }, []);
+
+  if (loading) return <div>Cargando datos...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
-    <div className="p-6 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Test API de Validación</h1>
-      <input
-        type="text"
-        placeholder="Ingrese la cédula"
-        value={cedula}
-        onChange={(e) => setCedula(e.target.value)}
-        className="w-full border p-2 mb-4"
-      />
-      <button onClick={handleCheck} className="bg-blue-600 text-white px-4 py-2 rounded">
-        {loading ? "Verificando..." : "Validar Cédula"}
-      </button>
-
-      {error && <p className="text-red-500 mt-4">{error}</p>}
-
-      {resultado && (
-        <div className="mt-4 p-4 bg-gray-100 rounded">
-          <h3 className="font-bold">HTTP Code: 200</h3>
-          <h3 className="font-bold mt-2">Respuesta de la API:</h3>
-          <pre className="text-sm">{JSON.stringify(resultado, null, 2)}</pre>
-        </div>
-      )}
+    <div>
+      <h1>Datos obtenidos correctamente:</h1>
+      <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>
   );
 }

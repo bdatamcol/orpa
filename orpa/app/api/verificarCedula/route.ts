@@ -9,11 +9,11 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 1️⃣ Autenticación para obtener el token
-    const loginUrl = "https://api.pruebas.hph.com.co/api/Authenticate/login";
+    // Autenticación para obtener el token
+    const loginUrl = "https://api.hph.com.co/api/Authenticate/login";
     const credentials = {
-      username: "dev",
-      password: "kynvyw-myQwi1-jajdud.@",
+      username: "Admin",
+      password: "Aq12wsxc*.",
     };
 
     const loginResponse = await fetch(loginUrl, {
@@ -33,8 +33,8 @@ export async function GET(request: Request) {
 
     const token = loginData.token;
 
-    // 2️⃣ Consultar la cédula en la API
-    const apiUrl = `https://api.pruebas.hph.com.co/api/Crm/GetCustomersById?Id=${cedula}`;
+    // Consulta la cédula usando el token obtenido
+    const apiUrl = `https://api.hph.com.co/api/Bdatam/GetCustomersBDAtamById?Id=${cedula}`;
     const response = await fetch(apiUrl, {
       method: "GET",
       headers: {

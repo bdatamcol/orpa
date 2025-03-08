@@ -1,374 +1,534 @@
 "use client"
 import { useEffect, useState } from "react"
-import type React from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
+import Image from "next/image"
 import { verificarCedula } from "../../lib/apiUsuarios"
 import { supabase } from "../../lib/supabaseClient"
 
 export default function Register() {
   const router = useRouter()
   const [cedula, setCedula] = useState("")
-  const [loadingCedula, setLoadingCedula] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [datosCargados, setDatosCargados] = useState(false)
-  const [usuarioEncontrado, setUsuarioEncontrado] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [cedulaRegistradaSupabase, setCedulaRegistradaSupabase] = useState(false)
-
-  // Estados para controlar los pop-ups y sus mensajes
   const [popupMessage, setPopupMessage] = useState("")
   const [showPopup, setShowPopup] = useState(false)
+  const [error, setError] = useState("")
 
   const [form, setForm] = useState({
-    nombre1: "",
-    nombre2: "",
-    apellido1: "",
-    apellido2: "",
+    nombres: "",
+    apellidos: "",
     correo: "",
-    telefono: "",
-    tipo_documento: "Cédula de Ciudadanía",
+    celular: "",
     password: "",
     confirmPassword: "",
   })
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data } = await supabase.auth.getSession()
-      if (data.session) {
-        router.push("/perfil")
-      } else {
-        setLoading(false)
+      try {
+        const { data } = await supabase.auth.getSession()
+        if (data.session) router.push("/perfil")
+      } finally {
+        setInitialLoading(false)
       }
     }
-    checkSession() // <-- ¡CORRECCIÓN: Llamada a la función con paréntesis!
-  }, [router]) // <-- ¡CORRECCIÓN: Dependencia corregida a "router"!
+    checkSession()
+  }, [router])
 
   const handleCedulaCheck = async () => {
-    // **Validación de Cédula Obligatoria**
-    if (!cedula || cedula.trim() === "") {
-      showPopupMessage("¡Debes ingresar un número de cédula para validar! 📝");
-      return; // Detener la función si la cédula está vacía
+    if (!cedula.trim()) {
+      setError("Por favor ingresa un número de cédula válido.")
+      return
     }
 
-    setCedulaRegistradaSupabase(false)
-    setLoadingCedula(true)
+    setLoading(true)
+    setError("")
 
     try {
-      const res = await verificarCedula(cedula);
-      setLoadingCedula(false);
+      // Primero verifica si ya está registrada en Supabase
+      const { data: existingUser, error } = await supabase.from("usuarios").select("*").eq("cedula", cedula)
 
-      if (!res.success || !res.data) {
-        setDatosCargados(true);
-        setUsuarioEncontrado(false);
-        setForm({
-          ...form,
-          tipo_documento: "Cédula de Ciudadanía",
-        });
-        return;
-      }
-
-      const { data: existingUser, error: dbError } = await supabase
-        .from("usuarios")
-        .select("*")
-        .eq("cedula", cedula)
-
-      if (dbError) {
-        throw dbError;
+      if (error) {
+        throw new Error("Error al verificar cédula en base de datos.")
       }
 
       if (existingUser && existingUser.length > 0) {
-        setCedulaRegistradaSupabase(true);
-        // **Mostrar mensaje de cédula registrada en pop-up**
-        showPopupMessage("Esta cédula ya se encuentra registrada. ⛔");
-        return;
+        setPopupMessage("Ya existe una cuenta registrada con este número de cédula. Por favor inicia sesión.")
+        setShowPopup(true)
+        return
       }
 
-      const userData = res.data;
+      const res = await verificarCedula(cedula)
 
-      if (!userData.e_mail || userData.e_mail.trim() === "") {
-        setDatosCargados(true);
-        setUsuarioEncontrado(false);
+      if (res.success && res.data) {
         setForm({
-          ...form,
-          nombre1: userData.nom1_cli || "",
-          nombre2: userData.nom2_cli || "",
-          apellido1: userData.ap1_cli || "",
-          apellido2: userData.ap2_cli || "",
-          telefono: userData.te1_cli || userData.te2_cli || "",
-          tipo_documento: userData.tip_ide === "01" ? "Cédula de Ciudadanía" : "Cédula de Extranjería",
-        });
-        return;
+          nombres: res.data.nombres || "",
+          apellidos: res.data.apellidos || "",
+          correo: res.data.email || "",
+          celular: res.data.celular || "",
+          password: "",
+          confirmPassword: "",
+        })
+        setDatosCargados(true)
+      } else {
+        setPopupMessage("¡Cédula no encontrada! Solicita tu primer crédito con Orpa.")
+        setShowPopup(true)
       }
-
-      setDatosCargados(true);
-      setUsuarioEncontrado(true);
-
-      setForm({
-        nombre1: userData.nom1_cli || "",
-        nombre2: userData.nom2_cli || "",
-        apellido1: userData.ap1_cli || "",
-        apellido2: userData.ap2_cli || "",
-        correo: userData.e_mail.trim(),
-        telefono: userData.te1_cli || userData.te2_cli || "",
-        tipo_documento: userData.tip_ide === "01" ? "Cédula de Ciudadanía" : "Cédula de Extranjería",
-        password: "",
-        confirmPassword: "",
-      });
-    } catch (error: any) {
-      setLoadingCedula(false);
-      setDatosCargados(true);
-      setUsuarioEncontrado(false);
-      showPopupMessage(`Error al verificar cédula ⚠️: ${error.message}`);
+    } catch (err) {
+      setError(err.message || "Error al verificar la cédula. Intenta nuevamente.")
+    } finally {
+      setLoading(false)
     }
-  };
+  }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    setError("")
 
     if (form.password !== form.confirmPassword) {
-      showPopupMessage("¡Las contraseñas no coinciden! 🙁 Por favor, verifica.");
-      return;
+      setError("Las contraseñas no coinciden.")
+      return
     }
 
-    if (!form.correo) {
-      showPopupMessage("¡Necesitas un correo electrónico válido! 📧");
-      return;
+    if (form.password.length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres.")
+      return
     }
+
+    setLoading(true)
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { error: authError } = await supabase.auth.signUp({
         email: form.correo,
         password: form.password,
-        options: {
-          data: {
-            nombre1: form.nombre1,
-            nombre2: form.nombre2,
-            apellido1: form.apellido1,
-            apellido2: form.apellido2,
-            telefono: form.telefono,
-            tipo_documento: form.tipo_documento,
-            cedula: cedula,
-          },
-        },
-      });
+        options: { data: { nombres: form.nombres, apellidos: form.apellidos, cedula } },
+      })
 
-      if (error) throw error;
+      if (authError) throw new Error(authError.message)
 
       const { error: dbError } = await supabase.from("usuarios").insert([
         {
-          cedula: cedula,
-          nombre1: form.nombre1,
-          nombre2: form.nombre2,
-          apellido1: form.apellido1,
-          apellido2: form.apellido2,
-          tipo_documento: form.tipo_documento,
+          cedula,
+          nombre1: form.nombres,
+          apellido1: form.apellidos,
           correo: form.correo,
-          telefono: form.telefono,
+          telefono: form.celular ? Number.parseInt(form.celular) : null,
         },
-      ]);
+      ])
 
-      if (dbError) throw dbError;
+      if (dbError) throw new Error(dbError.message)
 
-      showPopupMessage("¡Registro exitoso! 🎉 Revisa tu correo para completar el proceso.");
-      router.push("/auth/login");
-    } catch (error: any) {
-      if (error.message.includes('AuthApiError: Email already registered')) {
-        showPopupMessage("¡Este correo ya está registrado! 😥 Intenta con otro.");
-      } else {
-        showPopupMessage(`Error al registrar 😞: ${error.message}`);
-      }
+      // Mostrar mensaje de éxito
+      setPopupMessage("¡Registro exitoso! Ahora puedes iniciar sesión con tus credenciales.")
+      setShowPopup(true)
+    } catch (err) {
+      setError(err.message || "Error en el registro. Intenta nuevamente.")
+    } finally {
+      setLoading(false)
     }
   }
 
-  const showPopupMessage = (message: string) => {
-    setPopupMessage(message);
-    setShowPopup(true);
-  };
-
   const closePopup = () => {
-    setShowPopup(false);
-    setPopupMessage("");
-    if (cedulaRegistradaSupabase) {
-      setCedula(""); // Limpiar el campo de cédula al cerrar el popup de cédula registrada
-      setCedulaRegistradaSupabase(false); // Resetear el estado
+    setShowPopup(false)
+    if (popupMessage.includes("exitoso")) {
+      router.push("/auth/login")
+    } else if (popupMessage.includes("Ya existe")) {
+      router.push("/auth/login")
+    } else {
+      router.push("/")
     }
-  };
+  }
 
-
-  if (loading) {
-    return <p className="text-center text-gray-600">Cargando...</p>
+  if (initialLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#f6f6f6]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-t-[#f8c327] border-r-[#f8c327] border-b-gray-200 border-l-gray-200 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg font-medium text-gray-700">Cargando...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#f6f6f6] flex flex-col items-center justify-center relative overflow-hidden">
+      {/* Fondo con overlay */}
+      <div className="absolute inset-0 z-0">
+        <Image
+          src="/img/fondo-registro-blanco.webp"
+          alt="Fondo"
+          fill
+          className="object-cover hidden md:block"
+          priority
+        />
+        <Image
+          src="/img/fondo-movil-registro-blanco.webp"
+          alt="Fondo móvil"
+          fill
+          className="object-cover md:hidden"
+          priority
+        />
+        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+      </div>
 
-      {/* Pop-up Alert */}
+      {/* Popup modal */}
       {showPopup && (
-        <div className="fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
-                      Mensaje
-                    </h3>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500">
-                        {popupMessage}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
-                  onClick={closePopup}
-                >
-                  Aceptar
-                </button>
-              </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-lg max-w-md w-full">
+            <div className="text-center mb-4">
+              {popupMessage.includes("exitoso") ? (
+                <svg className="w-16 h-16 text-green-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              ) : (
+                <svg className="w-16 h-16 text-[#f8c327] mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              )}
+              <h3 className="text-xl font-bold mt-2">
+                {popupMessage.includes("exitoso") ? "¡Registro Exitoso!" : "Información"}
+              </h3>
             </div>
+            <p className="text-gray-700 mb-6 text-center">{popupMessage}</p>
+            <button
+              className="w-full bg-[#f8c327] text-black py-3 px-4 rounded-lg hover:bg-[#fad64f] transition-colors font-semibold"
+              onClick={closePopup}
+            >
+              Aceptar
+            </button>
           </div>
         </div>
       )}
 
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Registro</h2>
+      {/* Contenido principal */}
+      <div className="z-10 flex flex-col items-center justify-center w-full max-w-md px-4 py-8">
+        {/* Logo o título */}
+        <div className="mb-8 text-center">
+          <Link href="/" className="inline-block">
+            <h1 className="text-4xl font-bold text-white mb-2">ORPA</h1>
+          </Link>
+          <p className="text-gray-300 text-lg">Crea tu cuenta</p>
         </div>
 
-        {!datosCargados && (
-          <div className="mt-8 space-y-6">
-            <input
-              type="text"
-              placeholder="Número de Cédula"
-              value={cedula}
-              onChange={(e) => setCedula(e.target.value)}
-              className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-              required
-            />
-            <button
-              onClick={handleCedulaCheck}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              disabled={loadingCedula}
-            >
-              {loadingCedula ? "Verificando..." : "Validar Cédula"}
-            </button>
+        {/* Tarjeta de registro */}
+        <div className="w-full bg-white rounded-xl shadow-lg overflow-hidden">
+          {/* Cabecera de la tarjeta */}
+          <div className="bg-gradient-to-r from-[#000000] to-[#333333] p-5 text-white">
+            <h2 className="text-xl font-bold text-center">Registro de Usuario</h2>
           </div>
-        )}
 
+          {/* Contenido de la tarjeta */}
+          <div className="p-6">
+            {error && (
+              <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
+                <div className="flex items-start">
+                  <svg
+                    className="w-5 h-5 text-red-500 mt-0.5 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <div>
+                    <h3 className="text-sm font-medium text-red-800">Error</h3>
+                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-        {datosCargados && (
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-            <div className="rounded-md shadow-sm -space-y-px">
-              <div>
-                <input
-                  name="nombre1"
-                  placeholder="Primer Nombre"
-                  value={form.nombre1}
-                  onChange={handleInputChange}
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  disabled={usuarioEncontrado}
-                  required
-                />
-              </div>
-              <div>
-                <input
-                  name="nombre2"
-                  placeholder="Segundo Nombre"
-                  value={form.nombre2}
-                  onChange={handleInputChange}
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  disabled={usuarioEncontrado}
-                />
-              </div>
-              <div>
-                <input
-                  name="apellido1"
-                  placeholder="Primer Apellido"
-                  value={form.apellido1}
-                  onChange={handleInputChange}
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  disabled={usuarioEncontrado}
-                  required
-                />
-              </div>
-              <div>
-                <input
-                  name="apellido2"
-                  placeholder="Segundo Apellido"
-                  value={form.apellido2}
-                  onChange={handleInputChange}
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  disabled={usuarioEncontrado}
-                />
-              </div>
-              <div>
-                <input
-                  name="correo"
-                  type="email"
-                  placeholder="Correo Electrónico"
-                  value={form.correo}
-                  onChange={handleInputChange}
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  disabled={usuarioEncontrado}
-                  required
-                />
-              </div>
-              <div>
-                <input
-                  name="telefono"
-                  placeholder="Teléfono"
-                  value={form.telefono}
-                  onChange={handleInputChange}
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  disabled={usuarioEncontrado}
-                  required
-                />
-              </div>
-              <div>
-                <input
-                  name="password"
-                  type="password"
-                  placeholder="Contraseña"
-                  value={form.password}
-                  onChange={handleInputChange}
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <input
-                  name="confirmPassword"
-                  type="password"
-                  placeholder="Confirmar Contraseña"
-                  value={form.confirmPassword}
-                  onChange={handleInputChange}
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  required
-                />
-              </div>
-            </div>
+            {!datosCargados ? (
+              <div className="space-y-6">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-[#f8c327]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    Paso 1: Validación de Cédula
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Ingresa tu número de cédula para validar tus datos en el sistema.
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="cedula" className="block text-sm font-medium text-gray-700 mb-1">
+                        Número de Cédula
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2"
+                            />
+                          </svg>
+                        </div>
+                        <input
+                          id="cedula"
+                          type="text"
+                          value={cedula}
+                          onChange={(e) => setCedula(e.target.value)}
+                          placeholder="Ingresa tu número de cédula"
+                          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:border-[#f8c327]"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleCedulaCheck}
+                      disabled={loading}
+                      className="w-full bg-[#f8c327] text-black py-3 px-4 rounded-lg hover:bg-[#fad64f] transition-colors font-semibold flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                      {loading ? (
+                        <>
+                          <svg
+                            className="animate-spin -ml-1 mr-2 h-5 w-5 text-black"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Verificando...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          Validar Cédula
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
 
-            <div>
-              <button
-                type="submit"
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                Registrarse
-              </button>
-            </div>
-          </form>
-        )}
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">
+                    ¿Ya tienes una cuenta?{" "}
+                    <Link href="/auth/login" className="font-medium text-[#b2570b] hover:text-[#f8c327]">
+                      Inicia sesión aquí
+                    </Link>
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-[#f8c327]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      />
+                    </svg>
+                    Paso 2: Información Personal
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Estos datos han sido cargados automáticamente. No pueden ser modificados.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="nombres" className="block text-sm font-medium text-gray-700 mb-1">
+                        Nombres
+                      </label>
+                      <input
+                        id="nombres"
+                        name="nombres"
+                        value={form.nombres}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="apellidos" className="block text-sm font-medium text-gray-700 mb-1">
+                        Apellidos
+                      </label>
+                      <input
+                        id="apellidos"
+                        name="apellidos"
+                        value={form.apellidos}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="correo" className="block text-sm font-medium text-gray-700 mb-1">
+                        Correo Electrónico
+                      </label>
+                      <input
+                        id="correo"
+                        name="correo"
+                        value={form.correo}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                        disabled
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="celular" className="block text-sm font-medium text-gray-700 mb-1">
+                        Celular
+                      </label>
+                      <input
+                        id="celular"
+                        name="celular"
+                        value={form.celular}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                        disabled
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                    <svg className="w-5 h-5 mr-2 text-[#f8c327]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                    Paso 3: Crear Contraseña
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Crea una contraseña segura para tu cuenta. Debe tener al menos 6 caracteres.
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                        Contraseña
+                      </label>
+                      <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        value={form.password}
+                        onChange={handleInputChange}
+                        placeholder="Ingresa tu contraseña"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:border-[#f8c327]"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                        Confirmar Contraseña
+                      </label>
+                      <input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type="password"
+                        value={form.confirmPassword}
+                        onChange={handleInputChange}
+                        placeholder="Confirma tu contraseña"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:border-[#f8c327]"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-[#f8c327] text-black py-3 px-4 rounded-lg hover:bg-[#fad64f] transition-colors font-semibold flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <>
+                      <svg
+                        className="animate-spin -ml-1 mr-2 h-5 w-5 text-black"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                        />
+                      </svg>
+                      Completar Registro
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center text-gray-400 text-sm">
+          <p>© {new Date().getFullYear()} ORPA. Todos los derechos reservados.</p>
+        </div>
       </div>
     </div>
   )
 }
+
