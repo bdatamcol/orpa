@@ -219,26 +219,36 @@ function Creditos() {
                       <div className="divide-y divide-gray-100">
                         {/* Información general */}
                         <div className="p-4 bg-gray-50">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-sm text-gray-500">Referencia</p>
-                              <p className="font-medium">{credito.referencia}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-500">Valor cuota</p>
-                              <p className="font-medium">${credito.valorCuota?.toLocaleString()}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-500">Cuotas</p>
-                              <p className="font-medium">{credito.siguienteCuota} de {credito.totalCuotas}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-500">Días de mora</p>
-                              <p className={`font-medium ${(credito.diasMora || credito.diasMorTe || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {credito.diasMora || credito.diasMorTe || 0} días
-                              </p>
-                            </div>
-                          </div>
+                        <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-500">ATH de pagos</p>
+                          <p className="font-medium">{credito.ath || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Referencia</p>
+                          <p className="font-medium">{credito.referencia}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Valor cuota</p>
+                          <p className="font-medium">${credito.valorCuota?.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Cuotas</p>
+                          <p className="font-medium">{credito.siguienteCuota} de {credito.totalCuotas}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Días de mora</p>
+                          <p className={`font-medium ${(credito.diasMora || credito.diasMorTe || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {credito.diasMora || credito.diasMorTe || 0} días
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Último pago</p>
+                          <p className="font-medium">
+                            {credito.fechaUltimoPago ? new Date(credito.fechaUltimoPago).toLocaleDateString() : 'N/A'}
+                          </p>
+                        </div>
+                      </div>
                         </div>
 
                         {/* Secciones colapsables */}
