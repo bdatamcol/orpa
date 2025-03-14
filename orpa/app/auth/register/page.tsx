@@ -77,17 +77,19 @@ export default function Register() {
         setShowPopup(true)
       }
     } catch (err) {
-      setError(err.message || "Error al verificar la cédula. Intenta nuevamente.")
+      setError(typeof err === 'object' && err !== null && 'message' in err 
+        ? (err as Error).message 
+        : "Error al verificar la cédula. Intenta nuevamente.")
     } finally {
       setLoading(false)
     }
   }
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
 
@@ -128,7 +130,9 @@ export default function Register() {
       setPopupMessage("¡Registro exitoso! Ahora puedes iniciar sesión con tus credenciales.")
       setShowPopup(true)
     } catch (err) {
-      setError(err.message || "Error en el registro. Intenta nuevamente.")
+      setError(typeof err === 'object' && err !== null && 'message' in err 
+        ? (err as Error).message 
+        : "Error en el registro. Intenta nuevamente.")
     } finally {
       setLoading(false)
     }

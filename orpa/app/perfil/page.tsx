@@ -259,7 +259,7 @@ export default function Perfil() {
                   <div className="relative mb-4 md:mb-0 md:mr-6">
                     <div className="w-24 h-24 md:w-28 md:h-28 rounded-full border-4 border-white overflow-hidden">
                       <Image
-                        src={userDetails.imagen_perfil || "/img/avatar-perfil.webp"}
+                        src={userDetails.imagen_perfil || "/img/Avatar-perfil.webp"}
                         alt="Foto de perfil"
                         width={112}
                         height={112}
