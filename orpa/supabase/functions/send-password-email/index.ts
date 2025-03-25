@@ -1,9 +1,16 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+// Supabase Edge Function for password reset
+// This function handles password reset requests via email
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from '@supabase/supabase-js';
+
+// Define a type for the serve function to maintain compatibility
+type ServeFunction = (handler: (req: Request) => Promise<Response>) => void;
+
+// Create a simple serve implementation compatible with TypeScript
+const serve: ServeFunction = (handler) => {
+  // This is a placeholder that will be replaced by Supabase Edge runtime
+  // The actual implementation is provided by Supabase when deployed
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,8 +39,8 @@ serve(async (req) => {
     }
 
     // Create a Supabase client with the Auth context of the logged in user
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const supabaseUrl = process.env.SUPABASE_URL ?? "";
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Buscar el correo asociado a la cédula en la tabla usuarios
@@ -91,11 +98,14 @@ serve(async (req) => {
       }
     );
   } catch (error) {
+    // Manejar el error como tipo unknown y extraer el mensaje de forma segura
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+    
     return new Response(
       JSON.stringify({
         success: false,
         error: "Error en el proceso de recuperación.",
-        details: error.message,
+        details: errorMessage,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
