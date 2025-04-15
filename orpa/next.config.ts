@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'ryeaoowbvxnwpkobxzdq.supabase.co',
+        hostname: 'smirsvavqrhqwzflhbwg.supabase.co',
       },
     ],
     formats: ['image/avif', 'image/webp'], // Formatos de imagen optimizados
