@@ -94,23 +94,7 @@ export default function Perfil() {
     }
   }
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
 
-    const fileExt = file.name.split(".").pop()
-    const fileName = `${Math.random()}.${fileExt}`
-    const filePath = `${userDetails.cedula}/${fileName}`
-
-    const { error: uploadError } = await supabase.storage.from("profile-images").upload(filePath, file)
-
-    if (uploadError) {
-      alert("Error al subir la imagen")
-    } else {
-      const { data } = supabase.storage.from("profile-images").getPublicUrl(filePath)
-      setUserDetails({ ...userDetails, imagen_perfil: data.publicUrl })
-    }
-  }
 
   if (loading) {
     return (
@@ -205,6 +189,20 @@ export default function Perfil() {
                 </svg>
                 Mis créditos
               </a>
+              <a
+                href="/reportes"
+                className="flex items-center font-semibold px-4 py-2 rounded-2xl hover:bg-slate-700 transition-colors"
+              >
+                <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
+                </svg>
+                Reportar Falla
+              </a>
             </div>
           </nav>
 
@@ -266,19 +264,7 @@ export default function Perfil() {
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    {isEditing && (
-                      <label className="absolute bottom-0 right-0 bg-[#f8c327] text-black p-1.5 rounded-full cursor-pointer shadow-lg">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                          />
-                        </svg>
-                        <input type="file" className="hidden" onChange={handleImageUpload} accept="image/*" />
-                      </label>
-                    )}
+
                   </div>
                   <div className="text-center md:text-left">
                     <h2 className="text-2xl font-bold">

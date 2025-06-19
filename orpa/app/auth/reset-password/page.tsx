@@ -19,9 +19,27 @@ export default function ResetPassword() {
     // Check if we have the access token in the URL (Supabase adds this after clicking the reset link)
     const checkResetToken = async () => {
       const hash = window.location.hash
+      const urlParams = new URLSearchParams(hash.substring(1))
+      
       if (!hash || !hash.includes("type=recovery")) {
         setError("Enlace de recuperación inválido o expirado. Por favor solicita un nuevo enlace.")
+        return
       }
+      
+      // Verificar si el token ha expirado
+      const expiresAt = urlParams.get('expires_at')
+      if (expiresAt && new Date(parseInt(expiresAt) * 1000) < new Date()) {
+        setError("El enlace de recuperación ha expirado. Por favor solicita un nuevo enlace.")
+        return
+      }
+      
+      // Log para debugging
+      console.log('Reset token validation:', {
+        hasRecoveryType: hash.includes("type=recovery"),
+        expiresAt: expiresAt ? new Date(parseInt(expiresAt) * 1000).toISOString() : 'No expiry',
+        isExpired: expiresAt ? new Date(parseInt(expiresAt) * 1000) < new Date() : false,
+        timestamp: new Date().toISOString()
+      })
     }
 
     checkResetToken()
@@ -103,24 +121,34 @@ export default function ResetPassword() {
           <div className="p-6">
             {error && (
               <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-                <div className="flex items-start">
-                  <svg
-                    className="w-5 h-5 text-red-500 mt-0.5 mr-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <div>
-                    <h3 className="text-sm font-medium text-red-800">Error</h3>
-                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start">
+                    <svg
+                      className="w-5 h-5 text-red-500 mt-0.5 mr-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <div>
+                      <h3 className="text-sm font-medium text-red-800">Error</h3>
+                      <p className="text-sm text-red-700 mt-1">{error}</p>
+                    </div>
                   </div>
+                  {(error.includes("expirado") || error.includes("inválido")) && (
+                    <Link 
+                      href="/auth/forgot-password"
+                      className="text-red-600 hover:text-red-800 text-sm font-medium whitespace-nowrap ml-4"
+                    >
+                      Solicitar nuevo enlace
+                    </Link>
+                  )}
                 </div>
               </div>
             )}

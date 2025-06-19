@@ -19,7 +19,7 @@ export default function ForgotPassword() {
     setLoading(true)
 
     try {
-      // Llamar a la función Edge de Supabase para enviar el correo de recuperación
+      // Enviar solicitud al endpoint de la API para enviar el correo de recuperación
       const response = await fetch(`${window.location.origin}/api/send-password-email`, {
         method: "POST",
         headers: {

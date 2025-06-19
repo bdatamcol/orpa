@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" suppressHydrationWarning={true}>
       <head>
         <link rel="icon" href="/img/favicon-orpa.webp" type="image/webp" />
         <link rel="shortcut icon" href="/favicon.ico" />
