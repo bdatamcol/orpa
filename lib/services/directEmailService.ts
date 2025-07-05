@@ -7,6 +7,7 @@ import nodemailer from 'nodemailer';
 import { logger } from '../logger';
 import { getConfig } from '../config';
 import crypto from 'crypto';
+import { resendEmailService } from './resendEmailService';
 
 export interface EmailTemplate {
   subject: string;
@@ -170,6 +171,26 @@ Si no solicitaste este cambio, puedes ignorar este mensaje de forma segura.
    */
   async sendPasswordResetEmail(email: string, cedula: string): Promise<{ token: string; expiresAt: Date }> {
     try {
+      // Detectar si estamos en Vercel (producción) donde SMTP está bloqueado
+      const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+      
+      if (isVercel) {
+        logger.info('Detected Vercel environment, using Resend service instead of SMTP', {
+          email: email.substring(0, 3) + '***',
+          cedula: cedula.substring(0, 4) + '***'
+        });
+        
+        // Usar Resend en lugar de SMTP directo
+        const result = await resendEmailService.sendPasswordResetEmail(email, cedula);
+        
+        if (result.success && result.token && result.expiresAt) {
+          return { token: result.token, expiresAt: result.expiresAt };
+        } else {
+          throw new Error(result.message || 'Error al enviar email con Resend');
+        }
+      }
+      
+      // Código original para desarrollo local
       // Generar token único
       const token = this.generateResetToken();
       // Usar configuración de expiración desde variables de entorno (en segundos)
@@ -207,7 +228,7 @@ Si no solicitaste este cambio, puedes ignorar este mensaje de forma segura.
         }
       };
 
-      logger.info('Sending direct password reset email', {
+      logger.info('Sending direct password reset email via SMTP', {
         email: email.substring(0, 3) + '***',
         cedula: cedula.substring(0, 4) + '***',
         resetUrl: resetUrl.substring(0, 50) + '...',
@@ -217,7 +238,7 @@ Si no solicitaste este cambio, puedes ignorar este mensaje de forma segura.
       // Enviar email
       const result = await this.transporter.sendMail(mailOptions);
       
-      logger.info('Password reset email sent successfully', {
+      logger.info('Password reset email sent successfully via SMTP', {
         messageId: result.messageId,
         email: email.substring(0, 3) + '***',
         accepted: result.accepted?.length || 0,

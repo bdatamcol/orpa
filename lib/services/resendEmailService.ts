@@ -28,7 +28,8 @@ export class ResendEmailService {
   // Configuración para modo testing
   private readonly AUTHORIZED_EMAILS = [
     'digital@bdatam.com',
-    'admin@orpainversiones.com'
+    'admin@orpainversiones.com',
+    'trabajobilou@gmail.com'
   ];
   private readonly FALLBACK_EMAIL = 'digital@bdatam.com';
 
@@ -429,16 +430,23 @@ Si tienes problemas, contacta a soporte@orpainversiones.com
         ? this.createTestTemplate(resetUrl, cedula, email)
         : this.createPasswordResetTemplate(resetUrl, cedula);
 
-      // Enviar email usando Resend (usando dominio verificado temporalmente)
+      // Configurar el remitente según el entorno
+      const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+      const fromEmail = isProduction 
+        ? 'ORPA Inversiones <noreply@orpainversiones.com>'
+        : 'ORPA <onboarding@resend.dev>';
+      
+      // Enviar email usando Resend
       const result = await this.resend.emails.send({
-        from: 'ORPA <onboarding@resend.dev>',
+        from: fromEmail,
         to: [targetEmail],
         subject: template.subject,
         html: template.html,
         text: template.text,
         tags: [
           { name: 'category', value: 'password-reset' },
-          { name: 'cedula', value: cedula }
+          { name: 'cedula', value: cedula },
+          { name: 'environment', value: isProduction ? 'production' : 'development' }
         ]
       });
 
