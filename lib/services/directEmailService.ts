@@ -22,7 +22,7 @@ export interface ResetTokenData {
 }
 
 export class DirectEmailService {
-  private transporter: nodemailer.Transporter;
+  private transporter!: nodemailer.Transporter;
   private config: ReturnType<typeof getConfig>;
   private resetTokens: Map<string, ResetTokenData> = new Map();
 

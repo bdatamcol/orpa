@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 import { directEmailService } from '../../../lib/services/directEmailService'
 import bcrypt from 'bcryptjs'
 
@@ -42,15 +42,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar token usando el servicio directo
-    const isValidToken = await directEmailService.validateResetToken(token, email)
+    const tokenData = directEmailService.validateResetToken(token)
     
-    if (!isValidToken) {
+    if (!tokenData) {
       return NextResponse.json(
         { 
           success: false, 
           message: 'Token inválido o expirado. Solicita un nuevo enlace de recuperación.' 
         },
         { status: 401 }
+      )
+    }
+
+    // Verificar que el email coincida con el del token
+    if (tokenData.email !== email) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: 'Email no coincide con el token' 
+        },
+        { status: 400 }
       )
     }
 
@@ -97,7 +108,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Consumir el token para que no pueda ser reutilizado
-    await directEmailService.consumeResetToken(token, email)
+    directEmailService.consumeResetToken(token)
 
     // Log de seguridad (sin incluir información sensible)
     console.log(`Password updated successfully for user: ${email} at ${new Date().toISOString()}`)

@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const { token, expiresAt } = await directEmailService.sendPasswordResetEmail(user.correo, cedula);
     
     // Marcar como exitoso para rate limiting
-    markRequestAsSuccessful(request);
+    markRequestAsSuccessful(request, rateLimitConfigs.auth);
     
     const duration = Date.now() - startTime;
     

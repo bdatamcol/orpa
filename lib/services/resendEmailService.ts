@@ -478,7 +478,7 @@ Si tienes problemas, contacta a soporte@orpainversiones.com
       };
 
     } catch (error) {
-      logger.error('Error sending password reset email:', error);
+      logger.error('Error sending password reset email:', error instanceof Error ? error : undefined);
       return {
         success: false,
         message: 'Error interno al enviar el email'
@@ -511,7 +511,7 @@ Si tienes problemas, contacta a soporte@orpainversiones.com
       
       return true;
     } catch (error) {
-      logger.error('Error validating reset token:', error);
+      logger.error('Error validating reset token:', error instanceof Error ? error : undefined);
       return false;
     }
   }
@@ -531,7 +531,7 @@ Si tienes problemas, contacta a soporte@orpainversiones.com
       
       return false;
     } catch (error) {
-      logger.error('Error consuming reset token:', error);
+      logger.error('Error consuming reset token:', error instanceof Error ? error : undefined);
       return false;
     }
   }

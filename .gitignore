@@ -34,6 +34,22 @@ yarn-error.log*
 .env.local
 .env.development.local
 .env.test.local
+.env.production
+
+# development and testing files
+/scripts/
+/docs/
+/__tests__/
+/db backup/
+server.js
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+
+# documentation files
+*.md
+!README.md
 
 # vercel
 .vercel

@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
     );
 
     if (!emailResult.success) {
-      logger.error('Failed to send password reset email via Resend', {
-        error: emailResult.message,
+      logger.error('Failed to send password reset email via Resend', undefined, {
+        message: emailResult.message || 'Unknown error',
         cedula: cleanCedula.replace(/(.{2}).*(.{2})/, '$1***$2'),
         email: user.correo.replace(/(.{2}).*(@.*)/, '$1***$2')
       });
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Unexpected error in resend email endpoint:', error);
+    logger.error('Unexpected error in resend email endpoint:', error instanceof Error ? error : undefined);
     
     return NextResponse.json(
       { error: 'Error interno del servidor' },
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Error getting resend service stats:', error);
+    logger.error('Error getting resend service stats:', error instanceof Error ? error : undefined);
     
     return NextResponse.json(
       { error: 'Error interno del servidor' },

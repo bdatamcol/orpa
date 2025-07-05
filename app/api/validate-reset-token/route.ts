@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar token usando el servicio directo
-    const isValid = await directEmailService.validateResetToken(token, email)
+    const tokenData = directEmailService.validateResetToken(token)
+    const isValid = tokenData && tokenData.email === email
 
     if (isValid) {
       return NextResponse.json({

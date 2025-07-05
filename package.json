@@ -10,11 +10,14 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.48.1",
+    "@types/bcryptjs": "^2.4.6",
     "@types/nodemailer": "^6.4.17",
+    "bcryptjs": "^3.0.2",
     "next": "15.1.7",
     "nodemailer": "^6.10.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "resend": "^4.6.0"
   },
   "devDependencies": {
     "@types/node": "^20",

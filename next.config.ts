@@ -4,6 +4,13 @@ const nextConfig: NextConfig = {
   /* Optimizaciones para producción */
   poweredByHeader: false, // Elimina el header X-Powered-By por seguridad
   compress: true, // Habilita la compresión Gzip
+  
+  /* Configuración de exportación */
+  trailingSlash: false,
+  skipTrailingSlashRedirect: true,
+  
+  /* Configuración de output para evitar problemas de prerendering */
+  output: 'standalone',
   images: {
     remotePatterns: [
       {
