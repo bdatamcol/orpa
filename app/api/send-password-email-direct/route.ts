@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { directEmailService } from '../../../lib/services/directEmailService';
-import { localUserService } from '../../../lib/services/localUserService';
 import { logger } from '../../../lib/logger';
 import { applyRateLimit, markRequestAsSuccessful, rateLimitConfigs } from '../../../lib/middleware/rateLimit';
 import { ResetPasswordRequest, ResetPasswordResponse } from '../../../types/api';
@@ -47,45 +46,54 @@ export async function POST(request: NextRequest) {
       userAgent: request.headers.get('user-agent')
     });
 
-    // Buscar usuario primero en el servicio local
-    let user = localUserService.findUserByCedula(cedula);
-    let userSource = 'local';
+    // Buscar usuario ÚNICAMENTE en Supabase
+    let user = null;
+    const userSource = 'supabase';
     
-    // Si no se encuentra en local, buscar en Supabase
-    if (!user) {
-      try {
-        const { data: supabaseUser, error: userError } = await supabase
-          .from('usuarios')
-          .select('correo, cedula')
-          .eq('cedula', cedula)
-          .single();
+    logger.info('Searching user in Supabase database', {
+      cedula: cedula.substring(0, 4) + '***'
+    });
+    
+    try {
+      const { data: supabaseUser, error: userError } = await supabase
+        .from('usuarios')
+        .select('correo, cedula, nombre1, apellido1')
+        .eq('cedula', cedula)
+        .single();
+      
+      logger.info('Supabase query result', {
+        cedula: cedula.substring(0, 4) + '***',
+        hasData: !!supabaseUser,
+        hasError: !!userError,
+        errorMessage: userError?.message,
+        hasEmail: supabaseUser?.correo ? true : false
+      });
+      
+      if (!userError && supabaseUser && supabaseUser.correo) {
+        user = {
+          id: supabaseUser.cedula,
+          cedula: supabaseUser.cedula,
+          email: supabaseUser.correo,
+          name: `${supabaseUser.nombre1 || 'Usuario'} ${supabaseUser.apellido1 || 'Supabase'}`
+        };
         
-        if (!userError && supabaseUser && supabaseUser.correo) {
-          user = {
-            id: supabaseUser.cedula,
-            cedula: supabaseUser.cedula,
-            email: supabaseUser.correo,
-            name: 'Usuario Supabase'
-          };
-          userSource = 'supabase';
-          
-          logger.info('User found in Supabase', {
-            cedula: cedula.substring(0, 4) + '***',
-            email: supabaseUser.correo.substring(0, 3) + '***',
-            source: 'supabase'
-          });
-        }
-      } catch (supabaseError) {
-        logger.warn('Error searching user in Supabase', {
+        logger.info('User found in Supabase', {
           cedula: cedula.substring(0, 4) + '***',
-          error: supabaseError instanceof Error ? supabaseError.message : 'Unknown error'
+          email: supabaseUser.correo.substring(0, 3) + '***',
+          source: 'supabase'
+        });
+      } else {
+        logger.warn('User not found in Supabase or missing email', {
+          cedula: cedula.substring(0, 4) + '***',
+          hasUser: !!supabaseUser,
+          hasEmail: supabaseUser?.correo ? true : false,
+          error: userError?.message
         });
       }
-    } else {
-      logger.info('User found in local service', {
+    } catch (supabaseError) {
+      logger.error('Error searching user in Supabase', supabaseError instanceof Error ? supabaseError : undefined, {
         cedula: cedula.substring(0, 4) + '***',
-        email: user.email.substring(0, 3) + '***',
-        source: 'local'
+        error: supabaseError instanceof Error ? supabaseError.message : 'Unknown error'
       });
     }
     
