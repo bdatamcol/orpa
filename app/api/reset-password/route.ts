@@ -139,8 +139,7 @@ export async function POST(request: NextRequest) {
       });
 
     } catch (emailError: any) {
-      logger.error('Failed to send password reset email', { 
-        error: emailError,
+      logger.error('Failed to send password reset email', emailError instanceof Error ? emailError : new Error(String(emailError)), {
         errorMessage: emailError?.message,
         errorName: emailError?.name,
         cedula: usuario.cedula,
@@ -158,7 +157,7 @@ export async function POST(request: NextRequest) {
         errorDetails = 'Límite de envío excedido';
       }
       
-      logger.error('Email error analysis', { errorDetails, originalError: emailError?.message });
+      logger.error('Email error analysis', emailError instanceof Error ? emailError : new Error(String(emailError)), { errorDetails });
       
       // No revelar el error específico al usuario por seguridad
       return NextResponse.json(
@@ -173,7 +172,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Password reset request failed', { error });
+    logger.error('Password reset request failed', error instanceof Error ? error : new Error(String(error)));
     
     return NextResponse.json(
       { success: false, error: 'Error interno del servidor' },
@@ -221,7 +220,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Token validation failed', { error });
+    logger.error('Token validation failed', error instanceof Error ? error : new Error(String(error)));
     
     return NextResponse.json(
       { success: false, error: 'Error interno del servidor' },
@@ -282,7 +281,7 @@ export async function PUT(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Password reset failed', { error });
+    logger.error('Password reset failed', error instanceof Error ? error : new Error(String(error)));
     
     return NextResponse.json(
       { success: false, error: 'Error interno del servidor' },

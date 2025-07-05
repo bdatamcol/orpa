@@ -11,90 +11,58 @@ interface DiagnosticResult {
 }
 
 export default function DiagnoseResendPage() {
-  const [testEmail, setTestEmail] = useState('')
-  const [configResult, setConfigResult] = useState<DiagnosticResult | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [result, setResult] = useState<DiagnosticResult | null>(null)
+  const [isTestLoading, setIsTestLoading] = useState(false)
   const [testResult, setTestResult] = useState<DiagnosticResult | null>(null)
-  const [loading, setLoading] = useState({ config: false, test: false })
+  const [testEmail, setTestEmail] = useState('')
 
-  const checkConfiguration = async () => {
-    setLoading(prev => ({ ...prev, config: true }))
+  const runDiagnostics = async () => {
+    setIsLoading(true)
+    setResult(null)
+    
     try {
       const response = await fetch('/api/diagnose-resend')
-      const result = await response.json()
-      setConfigResult(result)
+      const data = await response.json()
+      setResult(data)
     } catch (error) {
-      setConfigResult({
+      setResult({
         success: false,
-        message: 'Error de conexión',
+        message: 'Error al conectar con el servidor',
         error: error instanceof Error ? error.message : 'Unknown error'
       })
     } finally {
-      setLoading(prev => ({ ...prev, config: false }))
+      setIsLoading(false)
     }
   }
 
   const sendTestEmail = async () => {
-    if (!testEmail.trim()) {
-      alert('Por favor ingresa un email de prueba')
-      return
-    }
-
-    setLoading(prev => ({ ...prev, test: true }))
+    if (!testEmail) return
+    
+    setIsTestLoading(true)
+    setTestResult(null)
+    
     try {
       const response = await fetch('/api/diagnose-resend', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ testEmail: testEmail.trim() })
+        body: JSON.stringify({ testEmail })
       })
-
-      const result = await response.json()
-      setTestResult(result)
+      
+      const data = await response.json()
+      setTestResult(data)
     } catch (error) {
       setTestResult({
         success: false,
-        message: 'Error de conexión',
+        message: 'Error al enviar email de prueba',
         error: error instanceof Error ? error.message : 'Unknown error'
       })
     } finally {
-      setLoading(prev => ({ ...prev, test: false }))
+      setIsTestLoading(false)
     }
   }
-
-  const ResultCard = ({ title, result, loading }: { title: string, result: DiagnosticResult | null, loading: boolean }) => (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h3 className="text-lg font-semibold mb-4">{title}</h3>
-      {loading ? (
-        <div className="flex items-center space-x-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-          <span className="text-gray-600">Verificando...</span>
-        </div>
-      ) : result ? (
-        <div className={`p-4 rounded-lg ${result.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-          <div className={`font-medium ${result.success ? 'text-green-800' : 'text-red-800'}`}>
-            {result.success ? '✅ Configuración correcta' : '❌ Problema detectado'}
-          </div>
-          <div className={`mt-2 text-sm ${result.success ? 'text-green-700' : 'text-red-700'}`}>
-            {result.message}
-          </div>
-          {result.details && (
-            <div className="mt-3 text-xs bg-gray-100 p-3 rounded border">
-              <strong>Detalles:</strong>
-              <pre className="mt-1 whitespace-pre-wrap">{JSON.stringify(result.details, null, 2)}</pre>
-            </div>
-          )}
-          {result.error && (
-            <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
-              <strong>Error:</strong> {result.error}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="text-gray-500 italic">No se ha ejecutado la verificación</div>
-      )}
-    </div>
-  )
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -116,126 +84,150 @@ export default function DiagnoseResendPage() {
               Esta herramienta te ayudará a identificar por qué los correos no llegan a los destinatarios.
             </p>
           </div>
+
+          <button
+            onClick={runDiagnostics}
+            disabled={isLoading}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Verificando...
+              </>
+            ) : (
+              'Verificar Configuración de Resend'
+            )}
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Verificaciones */}
-          <div className="space-y-6">
-            {/* Verificar configuración */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold mb-4">1. Verificar Configuración</h2>
-              <p className="text-gray-600 mb-4 text-sm">
-                Verifica que las variables de entorno estén configuradas correctamente.
-              </p>
-              <button
-                onClick={checkConfiguration}
-                disabled={loading.config}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loading.config ? 'Verificando...' : 'Verificar Configuración'}
-              </button>
+        {/* Resultado de la verificación */}
+        <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">📋 Resultado de la Verificación</h2>
+          
+          {isLoading ? (
+            <div className="flex items-center gap-2 text-blue-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <span className="text-gray-600">Verificando...</span>
             </div>
-
-            {/* Enviar email de prueba */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold mb-4">2. Enviar Email de Prueba</h2>
-              <p className="text-gray-600 mb-4 text-sm">
-                Envía un email de prueba para verificar que Resend funciona correctamente.
-              </p>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email de prueba
-                  </label>
-                  <input
-                    type="email"
-                    value={testEmail}
-                    onChange={(e) => setTestEmail(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="tu-email@ejemplo.com"
-                  />
-                </div>
-                <button
-                  onClick={sendTestEmail}
-                  disabled={loading.test}
-                  className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {loading.test ? 'Enviando...' : 'Enviar Email de Prueba'}
-                </button>
+          ) : result ? (
+            <div className={`p-4 rounded-lg ${result.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+              <div className={`font-medium ${result.success ? 'text-green-800' : 'text-red-800'}`}>
+                {result.success ? '✅ Configuración correcta' : '❌ Problema detectado'}
               </div>
+              <div className={`mt-2 text-sm ${result.success ? 'text-green-700' : 'text-red-700'}`}>
+                {result.message}
+              </div>
+              {result.details && (
+                <div className="mt-3 text-xs bg-gray-100 p-3 rounded border">
+                  <strong>Detalles:</strong>
+                  <pre className="mt-1 whitespace-pre-wrap">{JSON.stringify(result.details, null, 2)}</pre>
+                </div>
+              )}
+              {result.error && (
+                <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
+                  <strong>Error:</strong> {result.error}
+                </div>
+              )}
             </div>
-          </div>
-
-          {/* Resultados */}
-          <div className="space-y-6">
-            <ResultCard 
-              title="Resultado: Configuración" 
-              result={configResult} 
-              loading={loading.config} 
-            />
-            <ResultCard 
-              title="Resultado: Email de Prueba" 
-              result={testResult} 
-              loading={loading.test} 
-            />
-          </div>
+          ) : (
+            <div className="text-gray-500 italic">No se ha ejecutado la verificación</div>
+          )}
         </div>
 
-        {/* Guía de solución de problemas */}
-        <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">🛠️ Guía de Solución de Problemas</h2>
+        {/* Sección de envío de email de prueba */}
+        <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">📧 Enviar Email de Prueba</h2>
+          
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="testEmail" className="block text-sm font-medium text-gray-700 mb-2">
+                Email de destino:
+              </label>
+              <input
+                type="email"
+                id="testEmail"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="ejemplo@dominio.com"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            
+            <button
+              onClick={sendTestEmail}
+              disabled={isTestLoading || !testEmail}
+              className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              {isTestLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Enviando...
+                </>
+              ) : (
+                'Enviar Email de Prueba'
+              )}
+            </button>
+          </div>
+          
+          {/* Resultado del test de email */}
+          {isTestLoading ? (
+            <div className="mt-4 flex items-center gap-2 text-blue-600">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <span className="text-gray-600">Enviando email...</span>
+            </div>
+          ) : testResult ? (
+            <div className={`mt-4 p-4 rounded-lg ${
+              testResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+            }`}>
+              <div className={`font-medium ${
+                testResult.success ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {testResult.success ? '✅ Email enviado exitosamente' : '❌ Error al enviar email'}
+              </div>
+              <div className={`mt-2 text-sm ${
+                testResult.success ? 'text-green-700' : 'text-red-700'
+              }`}>
+                {testResult.message}
+              </div>
+              {testResult.details && (
+                <div className="mt-3 text-xs bg-gray-100 p-3 rounded border">
+                  <strong>Detalles:</strong>
+                  <pre className="mt-1 whitespace-pre-wrap">{JSON.stringify(testResult.details, null, 2)}</pre>
+                </div>
+              )}
+              {testResult.error && (
+                <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
+                  <strong>Error:</strong> {testResult.error}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Información adicional */}
+        <div className="bg-white rounded-lg shadow-lg p-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">💡 Consejos de Troubleshooting</h2>
+          
           <div className="space-y-4 text-sm text-gray-700">
-            <div className="border-l-4 border-yellow-400 pl-4">
-              <h4 className="font-semibold text-yellow-800">Problema: API Key inválida</h4>
-              <p>Verifica que <code className="bg-gray-100 px-1 rounded">RESEND_API_KEY</code> esté configurado correctamente en tu archivo .env.local</p>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h3 className="font-semibold text-yellow-800 mb-2">🔑 Problemas comunes:</h3>
+              <ul className="list-disc list-inside space-y-1 text-yellow-700">
+                <li>API Key incorrecta o expirada</li>
+                <li>Dominio no verificado en Resend</li>
+                <li>Límites de envío alcanzados</li>
+                <li>Emails llegando a carpeta de spam</li>
+              </ul>
             </div>
             
-            <div className="border-l-4 border-blue-400 pl-4">
-              <h4 className="font-semibold text-blue-800">Problema: Dominio no verificado</h4>
-              <p>En Resend, verifica tu dominio o usa el dominio sandbox para pruebas</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-semibold text-blue-800 mb-2">🔗 Enlaces útiles:</h3>
+              <ul className="list-disc list-inside space-y-1 text-blue-700">
+                <li><a href="https://resend.com/dashboard" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-800">Dashboard de Resend</a></li>
+                <li><a href="https://resend.com/domains" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-800">Gestión de Dominios</a></li>
+                <li><a href="https://resend.com/docs" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-800">Documentación</a></li>
+              </ul>
             </div>
-            
-            <div className="border-l-4 border-purple-400 pl-4">
-              <h4 className="font-semibold text-purple-800">Problema: Emails van a spam</h4>
-              <p>Configura SPF, DKIM y DMARC records en tu dominio</p>
-            </div>
-            
-            <div className="border-l-4 border-red-400 pl-4">
-              <h4 className="font-semibold text-red-800">Problema: Rate limiting</h4>
-              <p>Verifica los límites de tu plan de Resend</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Enlaces útiles */}
-        <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold mb-4">🔗 Enlaces Útiles</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <a
-              href="https://resend.com/dashboard"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
-            >
-              <div className="font-medium text-blue-800">Dashboard Resend</div>
-              <div className="text-sm text-blue-600">Ver logs y configuración</div>
-            </a>
-            <Link
-              href="/test-reset-password"
-              className="block p-4 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
-            >
-              <div className="font-medium text-green-800">Test Reset Password</div>
-              <div className="text-sm text-green-600">Probar funcionalidad completa</div>
-            </Link>
-            <a
-              href="https://resend.com/docs"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block p-4 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
-            >
-              <div className="font-medium text-purple-800">Documentación</div>
-              <div className="text-sm text-purple-600">Guías de Resend</div>
-            </Link>
           </div>
         </div>
       </div>

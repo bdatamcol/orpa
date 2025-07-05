@@ -10,13 +10,14 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  */
 export async function GET() {
   try {
-    const diagnostics = {
+    const diagnostics: any = {
       hasApiKey: !!process.env.RESEND_API_KEY,
       apiKeyFormat: process.env.RESEND_API_KEY ? 
         (process.env.RESEND_API_KEY.startsWith('re_') ? 'Válido' : 'Formato inválido') : 
         'No configurado',
       siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'No configurado',
-      environment: process.env.NODE_ENV || 'unknown'
+      environment: process.env.NODE_ENV || 'unknown',
+      domains: []
     };
 
     // Verificar si la API key funciona
@@ -28,15 +29,15 @@ export async function GET() {
         // Intentar obtener información de la cuenta
         const domains = await resend.domains.list();
         resendStatus = 'Conexión exitosa';
-        diagnostics.domains = domains.data?.map(d => ({
+        diagnostics.domains = Array.isArray(domains.data) ? domains.data.map((d: any) => ({
           name: d.name,
           status: d.status,
           region: d.region
-        })) || [];
+        })) : [];
       } catch (error: any) {
         resendStatus = 'Error de conexión';
         resendError = error.message;
-        logger.error('Resend API error during diagnostics', { error });
+        logger.error('Resend API error during diagnostics', error);
       }
     }
 
@@ -57,7 +58,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    logger.error('Diagnostics failed', { error });
+    logger.error('Diagnostics failed', error instanceof Error ? error : new Error(String(error)));
     
     return NextResponse.json(
       { 
@@ -177,7 +178,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    logger.error('Test email failed', { error });
+    logger.error('Test email failed', error instanceof Error ? error : new Error(String(error)));
     
     // Analizar el tipo de error para dar mejor feedback
     let errorMessage = 'Error al enviar email de prueba';

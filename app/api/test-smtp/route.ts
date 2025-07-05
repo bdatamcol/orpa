@@ -7,7 +7,7 @@ import nodemailer from 'nodemailer';
  */
 async function testSMTPConnection(): Promise<boolean> {
   try {
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'mail.orpainversiones.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: false,
@@ -23,7 +23,7 @@ async function testSMTPConnection(): Promise<boolean> {
     await transporter.verify();
     return true;
   } catch (error) {
-    logger.error('SMTP connection test failed', error);
+    logger.error('SMTP connection test failed', error instanceof Error ? error : new Error(String(error)));
     return false;
   }
 }
@@ -33,7 +33,7 @@ async function testSMTPConnection(): Promise<boolean> {
  */
 async function sendTestEmail(email: string): Promise<boolean> {
   try {
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'mail.orpainversiones.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: false,
@@ -56,7 +56,7 @@ async function sendTestEmail(email: string): Promise<boolean> {
 
     return true;
   } catch (error) {
-    logger.error('Test email send failed', error);
+    logger.error('Test email send failed', error instanceof Error ? error : new Error(String(error)));
     return false;
   }
 }
