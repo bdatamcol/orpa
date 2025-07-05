@@ -1,6 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { directEmailService } from '../../../lib/services/directEmailService';
 import { logger } from '../../../lib/logger';
+import nodemailer from 'nodemailer';
+
+/**
+ * Función auxiliar para probar la conexión SMTP
+ */
+async function testSMTPConnection(): Promise<boolean> {
+  try {
+    const transporter = nodemailer.createTransporter({
+      host: process.env.SMTP_HOST || 'mail.orpainversiones.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER || 'micuenta@orpainversiones.com',
+        pass: process.env.SMTP_PASS || 'U-IM5mVqroaoDrO'
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    await transporter.verify();
+    return true;
+  } catch (error) {
+    logger.error('SMTP connection test failed', error);
+    return false;
+  }
+}
+
+/**
+ * Función auxiliar para enviar email de prueba
+ */
+async function sendTestEmail(email: string): Promise<boolean> {
+  try {
+    const transporter = nodemailer.createTransporter({
+      host: process.env.SMTP_HOST || 'mail.orpainversiones.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER || 'micuenta@orpainversiones.com',
+        pass: process.env.SMTP_PASS || 'U-IM5mVqroaoDrO'
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+
+    await transporter.sendMail({
+      from: process.env.SMTP_USER || 'micuenta@orpainversiones.com',
+      to: email,
+      subject: 'Prueba de SMTP - ORPA',
+      text: 'Este es un email de prueba para verificar la configuración SMTP.',
+      html: '<p>Este es un email de prueba para verificar la configuración SMTP.</p>'
+    });
+
+    return true;
+  } catch (error) {
+    logger.error('Test email send failed', error);
+    return false;
+  }
+}
 
 /**
  * API Route para probar la configuración SMTP
@@ -33,12 +92,12 @@ export async function POST(request: NextRequest) {
 
     switch (testType) {
       case 'connection':
-        result = await directEmailService.testConnection();
+        result = await testSMTPConnection();
         message = result ? 'Conexión SMTP exitosa' : 'Fallo en la conexión SMTP';
         break;
         
       case 'send':
-        result = await directEmailService.sendTestEmail(email);
+        result = await sendTestEmail(email);
         message = result ? 'Email de prueba enviado exitosamente' : 'Fallo al enviar email de prueba';
         break;
         

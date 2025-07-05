@@ -1,346 +1,274 @@
 "use client"
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import Image from "next/image"
-import { supabase } from "../../lib/supabaseClient"
+
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 
 export default function ResetPassword() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const token = searchParams.get('token')
+  
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState("") 
+  const [validatingToken, setValidatingToken] = useState(true)
   const [error, setError] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [tokenValid, setTokenValid] = useState(false)
+  const [cedula, setCedula] = useState("")
 
   useEffect(() => {
-    // Check if we have the access token in the URL (Supabase adds this after clicking the reset link)
-    const checkResetToken = async () => {
-      const hash = window.location.hash
-      const urlParams = new URLSearchParams(hash.substring(1))
-      
-      if (!hash || !hash.includes("type=recovery")) {
-        setError("Enlace de recuperación inválido o expirado. Por favor solicita un nuevo enlace.")
-        return
-      }
-      
-      // Verificar si el token ha expirado
-      const expiresAt = urlParams.get('expires_at')
-      if (expiresAt && new Date(parseInt(expiresAt) * 1000) < new Date()) {
-        setError("El enlace de recuperación ha expirado. Por favor solicita un nuevo enlace.")
-        return
-      }
-      
-      // Log para debugging
-      console.log('Reset token validation:', {
-        hasRecoveryType: hash.includes("type=recovery"),
-        expiresAt: expiresAt ? new Date(parseInt(expiresAt) * 1000).toISOString() : 'No expiry',
-        isExpired: expiresAt ? new Date(parseInt(expiresAt) * 1000) < new Date() : false,
-        timestamp: new Date().toISOString()
-      })
+    if (!token) {
+      setError("Token de restablecimiento no válido")
+      setValidatingToken(false)
+      return
     }
 
-    checkResetToken()
-  }, [])
+    // Validar token
+    const validateToken = async () => {
+      try {
+        const response = await fetch(`/api/reset-password?token=${token}`)
+        const data = await response.json()
+
+        if (data.success) {
+          setTokenValid(true)
+          setCedula(data.data.cedula)
+        } else {
+          setError(data.error || 'Token inválido o expirado')
+        }
+      } catch (error) {
+        console.error('Error validating token:', error)
+        setError('Error al validar el token')
+      } finally {
+        setValidatingToken(false)
+      }
+    }
+
+    validateToken()
+  }, [token])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    setMessage("")
-
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden.")
+    
+    if (!password.trim()) {
+      setError("Por favor ingresa una nueva contraseña")
       return
     }
 
     if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.")
+      setError("La contraseña debe tener al menos 6 caracteres")
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden")
       return
     }
 
     setLoading(true)
+    setError("")
 
     try {
-      // Supabase handles the token from the URL automatically
-      const { error: resetError } = await supabase.auth.updateUser({
-        password: password
+      const response = await fetch('/api/reset-password', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          token, 
+          newPassword: password 
+        }),
       })
 
-      if (resetError) {
-        setError("Error al restablecer la contraseña. Inténtalo más tarde.")
+      const data = await response.json()
+
+      if (data.success) {
+        setSuccess(true)
       } else {
-        setMessage("Contraseña actualizada correctamente. Ahora puedes iniciar sesión con tu nueva contraseña.")
-        // Redirect to login after 3 seconds
-        setTimeout(() => {
-          router.push("/auth/login")
-        }, 3000)
+        setError(data.error || 'Error al actualizar la contraseña')
       }
-    } catch (err: any) {
-      setError("Error en el proceso de restablecimiento. Inténtalo más tarde.")
-      console.error(err)
+    } catch (error) {
+      console.error('Error:', error)
+      setError('Error de conexión. Inténtalo de nuevo.')
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <div className="min-h-screen bg-[#f6f6f6] flex flex-col items-center justify-center relative overflow-hidden">
-      {/* Fondo con overlay */}
-      <div className="absolute inset-0 z-0">
-        <Image src="/img/fondo-inicio-negro.webp" alt="Fondo" fill className="object-cover hidden md:block" priority />
-        <Image
-          src="/img/fondo-movil-inicio-negro.webp"
-          alt="Fondo móvil"
-          fill
-          className="object-cover md:hidden"
-          priority
-        />
-        <div className="absolute inset-0 bg-black bg-opacity-60"></div>
-      </div>
-
-      {/* Contenido principal */}
-      <div className="z-10 flex flex-col items-center justify-center w-full max-w-md px-4 py-8">
-        {/* Logo o título */}
-        <div className="mb-8 text-center">
-          <Link href="/" className="inline-block">
-            <h1 className="text-4xl font-bold text-white mb-2">ORPA</h1>
-          </Link>
-          <p className="text-gray-300 text-lg">Restablece tu contraseña</p>
-        </div>
-
-        {/* Tarjeta de restablecimiento */}
-        <div className="w-full bg-white rounded-xl shadow-lg overflow-hidden">
-          {/* Cabecera de la tarjeta */}
-          <div className="bg-gradient-to-r from-[#000000] to-[#333333] p-5 text-white">
-            <h2 className="text-xl font-bold text-center">Restablecer Contraseña</h2>
+  if (validatingToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+        <div className="max-w-md w-full space-y-8">
+          <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Validando enlace...</p>
           </div>
+        </div>
+      </div>
+    )
+  }
 
-          {/* Contenido de la tarjeta */}
-          <div className="p-6">
-            {error && (
-              <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-lg">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start">
-                    <svg
-                      className="w-5 h-5 text-red-500 mt-0.5 mr-2"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <div>
-                      <h3 className="text-sm font-medium text-red-800">Error</h3>
-                      <p className="text-sm text-red-700 mt-1">{error}</p>
-                    </div>
-                  </div>
-                  {(error.includes("expirado") || error.includes("inválido")) && (
-                    <Link 
-                      href="/auth/forgot-password"
-                      className="text-red-600 hover:text-red-800 text-sm font-medium whitespace-nowrap ml-4"
-                    >
-                      Solicitar nuevo enlace
-                    </Link>
-                  )}
-                </div>
+  if (!tokenValid) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+        <div className="max-w-md w-full space-y-8">
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
+                <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </div>
-            )}
-
-            {message && (
-              <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
-                <div className="flex items-start">
-                  <svg
-                    className="w-5 h-5 text-green-500 mt-0.5 mr-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <div>
-                    <h3 className="text-sm font-medium text-green-800">Éxito</h3>
-                    <p className="text-sm text-green-700 mt-1">{message}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <p className="text-gray-600 mb-6">
-              Ingresa tu nueva contraseña para restablecer el acceso a tu cuenta.
-            </p>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Nueva Contraseña
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      />
-                    </svg>
-                  </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    required
-                    className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:border-[#f8c327]"
-                    placeholder="Ingresa tu nueva contraseña"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                        />
-                      </svg>
-                    ) : (
-                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                  Confirmar Contraseña
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      />
-                    </svg>
-                  </div>
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    required
-                    className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:border-[#f8c327]"
-                    placeholder="Confirma tu nueva contraseña"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-                        />
-                      </svg>
-                    ) : (
-                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#f8c327] text-black py-3 px-4 rounded-lg hover:bg-[#fad64f] transition-colors font-semibold flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-t-black border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin mr-2"></div>
-                      Procesando...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      Restablecer Contraseña
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                <Link href="/auth/login" className="font-medium text-[#b2570b] hover:text-[#f8c327]">
-                  Volver al inicio de sesión
-                </Link>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                Enlace no válido
+              </h2>
+              <p className="text-gray-600 mb-6">
+                {error}
               </p>
+              <p className="text-sm text-gray-500 mb-6">
+                El enlace puede haber expirado o ser inválido. Solicita un nuevo enlace de restablecimiento.
+              </p>
+              <Link
+                href="/auth/forgot-password"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
+              >
+                Solicitar nuevo enlace
+              </Link>
             </div>
           </div>
         </div>
+      </div>
+    )
+  }
 
-        {/* Footer */}
-        <div className="mt-8 text-center text-gray-400 text-sm">
-          <p>© {new Date().getFullYear()} ORPA. Todos los derechos reservados.</p>
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+        <div className="max-w-md w-full space-y-8">
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                ¡Contraseña actualizada!
+              </h2>
+              <p className="text-gray-600 mb-6">
+                Tu contraseña ha sido restablecida exitosamente. Ya puedes iniciar sesión con tu nueva contraseña.
+              </p>
+              <Link
+                href="/auth/login"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200"
+              >
+                Iniciar sesión
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+      <div className="max-w-md w-full space-y-8">
+        <div className="bg-white rounded-2xl shadow-xl p-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              Nueva contraseña
+            </h2>
+            <p className="text-gray-600">
+              Ingresa tu nueva contraseña para la cuenta con cédula <strong>{cedula}</strong>
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                Nueva contraseña
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setError("")
+                }}
+                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-all duration-200"
+                placeholder="Mínimo 6 caracteres"
+                minLength={6}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                Confirmar contraseña
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value)
+                  setError("")
+                }}
+                className="appearance-none relative block w-full px-4 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm transition-all duration-200"
+                placeholder="Repite la contraseña"
+              />
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-red-800">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Actualizando...
+                  </>
+                ) : (
+                  'Actualizar contraseña'
+                )}
+              </button>
+            </div>
+          </form>
+
+          <div className="mt-6 text-center">
+            <Link
+              href="/auth/login"
+              className="text-sm text-indigo-600 hover:text-indigo-500 transition-colors duration-200"
+            >
+              ← Volver al inicio de sesión
+            </Link>
+          </div>
         </div>
       </div>
     </div>

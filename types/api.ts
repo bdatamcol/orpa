@@ -26,22 +26,7 @@ export interface Usuario {
   updated_at?: string;
 }
 
-/**
- * Request para restablecimiento de contraseña
- */
-export interface ResetPasswordRequest {
-  cedula: string;
-}
 
-/**
- * Response del restablecimiento de contraseña
- */
-export interface ResetPasswordResponse {
-  success: boolean;
-  message: string;
-  error?: string;
-  details?: string;
-}
 
 /**
  * Configuración de Supabase

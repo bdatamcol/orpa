@@ -29,6 +29,14 @@ function validateEnvironment(): void {
   if (missing.length > 0) {
     throw new Error(`Variables de entorno faltantes: ${missing.join(', ')}`);
   }
+
+  // Advertir sobre variables opcionales pero recomendadas
+  const recommended = ['RESEND_API_KEY'];
+  const missingRecommended = recommended.filter(key => !process.env[key]);
+  
+  if (missingRecommended.length > 0) {
+    console.warn(`Variables de entorno recomendadas faltantes: ${missingRecommended.join(', ')}`);
+  }
 }
 
 /**

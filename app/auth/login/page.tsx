@@ -232,11 +232,7 @@ export default function Login() {
                   </label>
                 </div>
 
-                <div className="text-sm">
-                  <Link href="/auth/forgot-password" className="font-medium text-[#b2570b] hover:text-[#f8c327]">
-                    ¿Olvidaste tu contraseña?
-                  </Link>
-                </div>
+
               </div>
 
               <div>
@@ -257,7 +253,12 @@ export default function Login() {
               </div>
             </form>
 
-            <div className="mt-6 text-center">
+            <div className="mt-6 text-center space-y-3">
+              <p className="text-sm text-gray-600">
+                <Link href="/auth/forgot-password" className="font-medium text-[#b2570b] hover:text-[#f8c327]">
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </p>
               <p className="text-sm text-gray-600">
                 ¿No tienes una cuenta?{" "}
                 <Link href="/auth/register" className="font-medium text-[#b2570b] hover:text-[#f8c327]">

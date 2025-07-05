@@ -7,7 +7,7 @@ export default function TestEmailDeliveryPage() {
   const [cedula, setCedula] = useState('1090178379');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
-  const [testType, setTestType] = useState('reset-password');
+  const [testType, setTestType] = useState('send');
 
   const testEmailDelivery = async () => {
     setLoading(true);
@@ -16,25 +16,14 @@ export default function TestEmailDeliveryPage() {
     try {
       let response;
       
-      if (testType === 'reset-password') {
-        // Probar el endpoint de recuperación de contraseña
-        response = await fetch('/api/send-password-email-direct', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ cedula }),
-        });
-      } else {
-        // Probar envío directo de correo
-        response = await fetch('/api/test-smtp', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, testType: 'send' }),
-        });
-      }
+      // Probar envío directo de correo
+      response = await fetch('/api/test-smtp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, testType: 'send' }),
+      });
 
       const data = await response.json();
       setResult({
@@ -65,48 +54,16 @@ export default function TestEmailDeliveryPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tipo de Prueba
+                Correo de Destino
               </label>
-              <select
-                value={testType}
-                onChange={(e) => setTestType(e.target.value)}
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu-correo@gmail.com"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="reset-password">Recuperación de Contraseña (Usuario Existente)</option>
-                <option value="send">Envío Directo de Correo</option>
-              </select>
+              />
             </div>
-
-            {testType === 'reset-password' ? (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cédula del Usuario
-                </label>
-                <input
-                  type="text"
-                  value={cedula}
-                  onChange={(e) => setCedula(e.target.value)}
-                  placeholder="1090178379"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Usuario actual: usuario@orpainversiones.com
-                </p>
-              </div>
-            ) : (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Correo de Destino
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tu-correo@gmail.com"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            )}
 
             <button
               onClick={testEmailDelivery}
@@ -116,16 +73,7 @@ export default function TestEmailDeliveryPage() {
               {loading ? 'Enviando...' : 'Probar Envío'}
             </button>
 
-            {testType === 'reset-password' && (
-              <div className="border-t pt-4">
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded">
-                  <p className="text-blue-800 text-sm">
-                    <strong>ℹ️ Información:</strong> El sistema ahora busca usuarios ÚNICAMENTE en Supabase. 
-                    Para actualizar el correo de un usuario, hazlo directamente en la base de datos de Supabase.
-                  </p>
-                </div>
-              </div>
-            )}
+
           </div>
 
           {result && (
