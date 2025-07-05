@@ -38,8 +38,8 @@ export class DirectEmailService {
       port: 465,
       secure: true, // SSL
       auth: {
-        user: 'smtpbdatam@orpainversiones.com',
-        pass: process.env.SMTP_PASSWORD || 'tu_password_smtp'
+        user: 'micuenta@orpainversiones.com',
+        pass: process.env.SMTP_PASSWORD || 'U-IM5mVqroaoDrO'
       },
       tls: {
         rejectUnauthorized: false
@@ -66,101 +66,88 @@ export class DirectEmailService {
   private createPasswordResetTemplate(resetUrl: string, cedula: string): EmailTemplate {
     const html = `
     <!DOCTYPE html>
-    <html>
+    <html lang="es">
     <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Recuperación de Contraseña - ORPA</title>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #1a365d; color: white; padding: 20px; text-align: center; }
-            .content { background: #f7fafc; padding: 30px; }
-            .button { 
-                display: inline-block; 
-                background: #3182ce; 
-                color: white; 
-                padding: 12px 30px; 
-                text-decoration: none; 
-                border-radius: 5px; 
-                margin: 20px 0;
-            }
-            .footer { background: #e2e8f0; padding: 20px; text-align: center; font-size: 12px; }
-            .warning { background: #fed7d7; border: 1px solid #fc8181; padding: 15px; border-radius: 5px; margin: 20px 0; }
-        </style>
+      <meta charset="UTF-8">
+      <title>Restablecer contraseña</title>
+      <style>
+        body {
+          background-color: #f9fafb;
+          font-family: 'Inter', sans-serif;
+          margin: 0;
+          padding: 0;
+          color: #111827;
+        }
+        .container {
+          max-width: 480px;
+          margin: 40px auto;
+          background-color: #ffffff;
+          border: 1px solid #e5e7eb;
+          border-radius: 16px;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+          padding: 32px;
+          text-align: center;
+        }
+        .title {
+          font-size: 22px;
+          font-weight: 600;
+          margin-bottom: 12px;
+        }
+        .description {
+          font-size: 16px;
+          color: #6b7280;
+          margin-bottom: 24px;
+        }
+        .btn {
+          display: inline-block;
+          padding: 12px 24px;
+          background-color: #4f46e5;
+          color: #ffffff !important;
+          border-radius: 8px;
+          text-decoration: none;
+          font-weight: 500;
+          font-size: 15px;
+          transition: background-color 0.2s ease;
+        }
+        .btn:hover {
+          background-color: #4338ca;
+        }
+        .footer {
+          margin-top: 32px;
+          font-size: 12px;
+          color: #9ca3af;
+        }
+      </style>
     </head>
     <body>
-        <div class="container">
-            <div class="header">
-                <h1>🔐 Recuperación de Contraseña</h1>
-                <p>ORPA Inversiones</p>
-            </div>
-            
-            <div class="content">
-                <h2>Hola,</h2>
-                <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta asociada a la cédula <strong>${cedula}</strong>.</p>
-                
-                <p>Para crear una nueva contraseña, haz clic en el siguiente enlace:</p>
-                
-                <div style="text-align: center;">
-                    <a href="${resetUrl}" class="button">Restablecer Contraseña</a>
-                </div>
-                
-                <div class="warning">
-                    <strong>⚠️ Importante:</strong>
-                    <ul>
-                        <li>Este enlace expira en <strong>1 hora</strong></li>
-                        <li>Solo puede ser usado una vez</li>
-                        <li>Si no solicitaste este cambio, ignora este email</li>
-                    </ul>
-                </div>
-                
-                <p>Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
-                <p style="word-break: break-all; background: #edf2f7; padding: 10px; border-radius: 3px;">
-                    ${resetUrl}
-                </p>
-                
-                <hr style="margin: 30px 0;">
-                <p><strong>¿Necesitas ayuda?</strong></p>
-                <p>Contacta a nuestro equipo de soporte:</p>
-                <ul>
-                    <li>📧 Email: soporte@orpainversiones.com</li>
-                    <li>📞 Teléfono: +593 XX XXX XXXX</li>
-                </ul>
-            </div>
-            
-            <div class="footer">
-                <p>© 2024 ORPA Inversiones. Todos los derechos reservados.</p>
-                <p>Este es un email automático, por favor no respondas a esta dirección.</p>
-            </div>
+      <div class="container">
+        <div class="title">Restablecer contraseña</div>
+        <div class="description">
+          Has solicitado restablecer la contraseña de tu cuenta.<br>
+          Haz clic en el siguiente botón para continuar:
         </div>
+        <a href="${resetUrl}" class="btn">Restablecer contraseña</a>
+        <div class="footer">
+          Si no solicitaste este cambio, puedes ignorar este mensaje de forma segura.
+        </div>
+      </div>
     </body>
     </html>
     `;
 
     const text = `
-Recuperación de Contraseña - ORPA Inversiones
+Restablecer contraseña
 
-Hola,
+Has solicitado restablecer la contraseña de tu cuenta.
 
-Hemos recibido una solicitud para restablecer la contraseña de tu cuenta asociada a la cédula ${cedula}.
-
-Para crear una nueva contraseña, visita el siguiente enlace:
+Para continuar, visita el siguiente enlace:
 ${resetUrl}
 
-IMPORTANTE:
-- Este enlace expira en 1 hora
-- Solo puede ser usado una vez
-- Si no solicitaste este cambio, ignora este email
-
-¿Necesitas ayuda?
-Contacta a soporte@orpainversiones.com
-
-© 2024 ORPA Inversiones
+Si no solicitaste este cambio, puedes ignorar este mensaje de forma segura.
     `;
 
     return {
-      subject: '🔐 Recuperación de Contraseña - ORPA Inversiones',
+      subject: 'Restablecer contraseña',
       html,
       text
     };
@@ -173,7 +160,9 @@ Contacta a soporte@orpainversiones.com
     try {
       // Generar token único
       const token = this.generateResetToken();
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+      // Usar configuración de expiración desde variables de entorno (en segundos)
+      const expirySeconds = parseInt(process.env.NEXT_PUBLIC_RESET_PASSWORD_EXPIRY || '86400'); // 24 horas por defecto
+      const expiresAt = new Date(Date.now() + expirySeconds * 1000);
       
       // Guardar token en memoria (en producción usar Redis o base de datos)
       this.resetTokens.set(token, {

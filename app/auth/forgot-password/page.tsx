@@ -19,8 +19,8 @@ export default function ForgotPassword() {
     setLoading(true)
 
     try {
-      // Enviar solicitud al endpoint de la API para enviar el correo de recuperación
-      const response = await fetch(`${window.location.origin}/api/send-password-email`, {
+      // Enviar solicitud al endpoint de la API para enviar el correo de recuperación usando SMTP directo
+      const response = await fetch(`${window.location.origin}/api/send-password-email-direct`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
