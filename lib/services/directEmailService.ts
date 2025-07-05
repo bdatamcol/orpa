@@ -3,7 +3,7 @@
  * Alternativa a Supabase Auth para envío de emails de recuperación
  */
 
-import * as nodemailer from 'nodemailer';
+import nodemailer from 'nodemailer';
 import { logger } from '../logger';
 import { getConfig } from '../config';
 import crypto from 'crypto';
@@ -32,24 +32,36 @@ export class DirectEmailService {
   }
 
   private initializeTransporter(): void {
-    // Configuración SMTP directa
+    // Configuración SMTP usando variables de entorno
+    const smtpHost = process.env.SMTP_HOST || 'mail.orpainversiones.com';
+    const smtpPort = parseInt(process.env.SMTP_PORT || '587');
+    const smtpUser = process.env.SMTP_USER || 'micuenta@orpainversiones.com';
+    const smtpPass = process.env.SMTP_PASS || 'U-IM5mVqroaoDrO';
+    
+    // Puerto 587 usa STARTTLS, puerto 465 usa SSL directo
+    const isSSL = smtpPort === 465;
+    
     this.transporter = nodemailer.createTransport({
-      host: 'mail.orpainversiones.com',
-      port: 465,
-      secure: true, // SSL
+      host: smtpHost,
+      port: smtpPort,
+      secure: isSSL, // true para 465, false para otros puertos
       auth: {
-        user: 'micuenta@orpainversiones.com',
-        pass: process.env.SMTP_PASSWORD || 'U-IM5mVqroaoDrO'
+        user: smtpUser,
+        pass: smtpPass
       },
       tls: {
         rejectUnauthorized: false
-      }
+      },
+      // Configuraciones adicionales para debugging
+      debug: true,
+      logger: true
     });
 
     logger.info('DirectEmailService initialized', {
-      host: 'mail.orpainversiones.com',
-      port: 465,
-      secure: true
+      host: smtpHost,
+      port: smtpPort,
+      secure: isSSL,
+      user: smtpUser.substring(0, 3) + '***'
     });
   }
 
@@ -290,11 +302,67 @@ Si no solicitaste este cambio, puedes ignorar este mensaje de forma segura.
    */
   async testConnection(): Promise<boolean> {
     try {
-      await this.transporter.verify();
-      logger.info('SMTP connection test successful');
+      logger.info('Testing SMTP connection...');
+      const result = await this.transporter.verify();
+      logger.info('SMTP connection test successful', { result });
       return true;
     } catch (error: any) {
-      logger.error('SMTP connection test failed', error);
+      logger.error('SMTP connection test failed', error, {
+        errorMessage: error.message,
+        errorCode: error.code,
+        errorStack: error.stack
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Envía un email de prueba para verificar la configuración
+   */
+  async sendTestEmail(toEmail: string): Promise<boolean> {
+    try {
+      const mailOptions = {
+        from: {
+          name: 'ORPA Inversiones - Test',
+          address: process.env.SMTP_FROM || 'noreply@orpainversiones.com'
+        },
+        to: toEmail,
+        subject: 'Test de Configuración SMTP - ORPA',
+        text: 'Este es un correo de prueba para verificar la configuración SMTP.',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Test de Configuración SMTP</h2>
+            <p>Este es un correo de prueba para verificar que la configuración SMTP está funcionando correctamente.</p>
+            <p><strong>Fecha:</strong> ${new Date().toLocaleString('es-EC')}</p>
+            <p><strong>Servidor:</strong> ${process.env.SMTP_HOST}</p>
+            <p><strong>Puerto:</strong> ${process.env.SMTP_PORT}</p>
+            <hr>
+            <p><small>ORPA Inversiones - Sistema de Correos</small></p>
+          </div>
+        `
+      };
+
+      logger.info('Sending test email', {
+        to: toEmail.substring(0, 3) + '***',
+        from: mailOptions.from.address
+      });
+
+      const result = await this.transporter.sendMail(mailOptions);
+      
+      logger.info('Test email sent successfully', {
+        messageId: result.messageId,
+        accepted: result.accepted?.length || 0,
+        rejected: result.rejected?.length || 0,
+        response: result.response
+      });
+
+      return true;
+    } catch (error: any) {
+      logger.error('Failed to send test email', error, {
+        to: toEmail.substring(0, 3) + '***',
+        errorMessage: error.message,
+        errorCode: error.code
+      });
       return false;
     }
   }

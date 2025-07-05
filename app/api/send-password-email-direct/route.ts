@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService } from '../../../lib/services/authService';
+import { createClient } from '@supabase/supabase-js';
 import { directEmailService } from '../../../lib/services/directEmailService';
+import { localUserService } from '../../../lib/services/localUserService';
 import { logger } from '../../../lib/logger';
 import { applyRateLimit, markRequestAsSuccessful, rateLimitConfigs } from '../../../lib/middleware/rateLimit';
 import { ResetPasswordRequest, ResetPasswordResponse } from '../../../types/api';
+
+// Configuración de Supabase
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 /**
  * API Route para envío directo de emails de recuperación
@@ -41,13 +47,67 @@ export async function POST(request: NextRequest) {
       userAgent: request.headers.get('user-agent')
     });
 
-    const authService = new AuthService();
+    // Buscar usuario primero en el servicio local
+    let user = localUserService.findUserByCedula(cedula);
+    let userSource = 'local';
     
-    // Buscar usuario por cédula
-    const user = await authService.findUserByCedula(cedula);
+    // Si no se encuentra en local, buscar en Supabase
+    if (!user) {
+      try {
+        const { data: supabaseUser, error: userError } = await supabase
+          .from('usuarios')
+          .select('correo, cedula')
+          .eq('cedula', cedula)
+          .single();
+        
+        if (!userError && supabaseUser && supabaseUser.correo) {
+          user = {
+            id: supabaseUser.cedula,
+            cedula: supabaseUser.cedula,
+            email: supabaseUser.correo,
+            name: 'Usuario Supabase'
+          };
+          userSource = 'supabase';
+          
+          logger.info('User found in Supabase', {
+            cedula: cedula.substring(0, 4) + '***',
+            email: supabaseUser.correo.substring(0, 3) + '***',
+            source: 'supabase'
+          });
+        }
+      } catch (supabaseError) {
+        logger.warn('Error searching user in Supabase', {
+          cedula: cedula.substring(0, 4) + '***',
+          error: supabaseError instanceof Error ? supabaseError.message : 'Unknown error'
+        });
+      }
+    } else {
+      logger.info('User found in local service', {
+        cedula: cedula.substring(0, 4) + '***',
+        email: user.email.substring(0, 3) + '***',
+        source: 'local'
+      });
+    }
+    
+    if (!user) {
+      // Por seguridad, no revelamos si el usuario existe o no
+      logger.warn('Password reset attempted for non-existent user', {
+        cedula: cedula.substring(0, 4) + '***',
+        ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+      });
+      
+      // Retornamos éxito para no revelar información
+      const response: ResetPasswordResponse = {
+        success: true,
+        message: 'Si existe una cuenta asociada a esta cédula, se ha enviado un enlace de recuperación al correo registrado. Revisa tu bandeja de entrada y spam.',
+        details: 'El enlace expira en 24 horas'
+      };
+      
+      return NextResponse.json(response, { status: 200 });
+    }
     
     // Enviar email directamente usando nuestro servicio
-    const { token, expiresAt } = await directEmailService.sendPasswordResetEmail(user.correo, cedula);
+    const { token, expiresAt } = await directEmailService.sendPasswordResetEmail(user.email, cedula);
     
     // Marcar como exitoso para rate limiting
     markRequestAsSuccessful(request, rateLimitConfigs.auth);
@@ -56,16 +116,17 @@ export async function POST(request: NextRequest) {
     
     logger.info('Direct password reset email sent successfully', {
       cedula: cedula.substring(0, 4) + '***',
-      email: user.correo.substring(0, 3) + '***',
+      email: user.email.substring(0, 3) + '***',
       duration,
       expiresAt,
-      tokenLength: token.length
+      tokenLength: token.length,
+      userSource
     });
 
     const response: ResetPasswordResponse = {
       success: true,
-      message: 'Se ha enviado un enlace de recuperación a tu correo electrónico. Revisa tu bandeja de entrada y spam.',
-      details: `El enlace expira en 1 hora (${expiresAt.toLocaleString('es-EC')})`
+      message: 'Si existe una cuenta asociada a esta cédula, se ha enviado un enlace de recuperación al correo registrado. Revisa tu bandeja de entrada y spam.',
+      details: `El enlace expira en 24 horas (${expiresAt.toLocaleString('es-EC')})`
     };
 
     return NextResponse.json(response, { status: 200 });
@@ -81,17 +142,6 @@ export async function POST(request: NextRequest) {
     });
 
     // Determinar tipo de error y respuesta apropiada
-    if (error.message?.includes('Usuario no encontrado')) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'No se encontró un usuario con esa cédula.',
-          error: 'USER_NOT_FOUND'
-        } as ResetPasswordResponse,
-        { status: 404 }
-      );
-    }
-
     if (error.message?.includes('SMTP') || error.message?.includes('email')) {
       return NextResponse.json(
         {

@@ -17,7 +17,7 @@ export class AuthService {
     
     // Usar service key si está disponible, sino usar anon key
     const isServiceKeyConfigured = this.config.supabase.serviceKey && 
-      this.config.supabase.serviceKey !== 'tu_service_role_key_aqui';
+      this.config.supabase.serviceKey !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtaXJzdmF2cXJocXd6ZmxoYndnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDY2MzA4OSwiZXhwIjoyMDYwMjM5MDg5fQ.BbuU8tpvz4jyNGYg32k39h2vVJF4Ezi-IFaoR3DMPI8';
     
     const supabaseKey = isServiceKeyConfigured 
       ? this.config.supabase.serviceKey! 
