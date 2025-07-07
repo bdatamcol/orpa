@@ -302,7 +302,7 @@ export async function PUT(request: NextRequest) {
       await authService.updatePasswordByCedula(tokenData.cedula, newPassword);
       logger.info('Password reset completed', { cedula: tokenData.cedula });
     } catch (error: any) {
-      logger.error('Failed to update password', { cedula: tokenData.cedula, error: error.message });
+      logger.error('Failed to update password', error instanceof Error ? error : new Error(String(error)), { cedula: tokenData.cedula });
       return NextResponse.json(
         { success: false, error: error.message || 'Error al actualizar la contraseña' },
         { status: 500 }

@@ -146,7 +146,7 @@ export class AuthService {
           details: listError.message,
           meta: { cedula: cedulaString }
         };
-        logger.error('Failed to list users', { error: listError });
+        logger.error('Failed to list users', listError instanceof Error ? listError : new Error(String(listError)));
         throw error;
       }
 
@@ -184,12 +184,10 @@ export class AuthService {
             details: updateError.message,
             meta: { cedula: cedulaString, userId: authUser.id }
           };
-          logger.error('Password update failed for existing user', { 
+          logger.error('Password update failed for existing user', updateError instanceof Error ? updateError : new Error(String(updateError)), { 
             cedula: cedulaString, 
             userId: authUser.id,
-            error: updateError.message,
-            errorCode: updateError.code,
-            fullError: updateError
+            errorCode: updateError.code
           });
           throw error;
         }
@@ -213,12 +211,10 @@ export class AuthService {
           details: createError.message,
           meta: { cedula: cedulaString, email: user.correo }
         };
-        logger.error('Failed to create auth user', { 
+        logger.error('Failed to create auth user', createError instanceof Error ? createError : new Error(String(createError)), { 
           cedula: cedulaString, 
           email: user.correo, 
-          error: createError.message,
-          errorCode: createError.code,
-          fullError: createError
+          errorCode: createError.code
         });
         throw error;
       }
@@ -239,15 +235,15 @@ export class AuthService {
       const error: AuthError = {
         type: AuthErrorType.DATABASE_ERROR,
         message: 'Error al actualizar la contraseña',
-        details: updateError.message,
+        details: updateError?.message || 'Unknown error',
         meta: { cedula: cedulaString, userId: authUser.id, updateError: updateError }
       };
-      logger.error('Password update failed', { 
+      const logError = updateError ? new Error(updateError?.message || 'Unknown Supabase error') : new Error('Unknown error');
+      logger.error('Password update failed', logError, { 
         cedula: cedulaString, 
         userId: authUser.id,
-        error: updateError.message,
-        errorCode: updateError.code,
-        fullError: updateError
+        supabaseErrorCode: updateError?.code,
+        supabaseError: updateError
       });
       throw error;
     }
