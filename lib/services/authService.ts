@@ -132,28 +132,71 @@ export class AuthService {
     // Buscar el usuario en Supabase Auth por email
     logger.debug('Searching for user in Supabase Auth', { cedula: cedulaString, email: user.correo });
     
-    const { data: authUsers, error: listError } = await this.supabase.auth.admin.listUsers();
-    
-    if (listError) {
-      const error: AuthError = {
-        type: AuthErrorType.DATABASE_ERROR,
-        message: 'Error al buscar usuarios en autenticación',
-        details: listError.message,
-        meta: { cedula: cedulaString }
-      };
-      logger.error('Failed to list users', { cedula: cedulaString, error: listError.message });
-      throw error;
+    let authUser = null;
+    let page = 1;
+    let allUsersFetched = false;
+
+    while (!authUser && !allUsersFetched) {
+      const { data: authUsers, error: listError } = await this.supabase.auth.admin.listUsers({ page, perPage: 50 });
+
+      if (listError) {
+        const error: AuthError = {
+          type: AuthErrorType.DATABASE_ERROR,
+          message: 'Error al buscar usuarios en autenticación',
+          details: listError.message,
+          meta: { cedula: cedulaString }
+        };
+        logger.error('Failed to list users', { error: listError });
+        throw error;
+      }
+
+      if (authUsers.users.length === 0) {
+        allUsersFetched = true;
+        break;
+      }
+
+      logger.debug('Fetched a page of auth users', { 
+        cedula: cedulaString, 
+        page: page,
+        count: authUsers.users.length
+      });
+
+      authUser = authUsers.users.find(u => u.email?.toLowerCase() === user.correo.toLowerCase());
+      page++;
     }
-
-    logger.debug('Auth users found', { 
-      cedula: cedulaString, 
-      totalUsers: authUsers.users.length,
-      userEmails: authUsers.users.map(u => u.email).slice(0, 5) // Solo los primeros 5 para no saturar logs
-    });
-
-    const authUser = authUsers.users.find(u => u.email === user.correo);
     
-    if (!authUser) {
+    if (authUser) {
+        logger.info('User found in Supabase Auth, updating password', { 
+          cedula: cedulaString, 
+          userId: authUser.id 
+        });
+        
+        // Actualizar la contraseña del usuario existente
+        const { error: updateError } = await this.supabase.auth.admin.updateUserById(
+          authUser.id,
+          { password: newPassword }
+        );
+        
+        if (updateError) {
+          const error: AuthError = {
+            type: AuthErrorType.DATABASE_ERROR,
+            message: 'Error al actualizar la contraseña',
+            details: updateError.message,
+            meta: { cedula: cedulaString, userId: authUser.id }
+          };
+          logger.error('Password update failed for existing user', { 
+            cedula: cedulaString, 
+            userId: authUser.id,
+            error: updateError.message,
+            errorCode: updateError.code,
+            fullError: updateError
+          });
+          throw error;
+        }
+        
+        logger.info('Password updated successfully for existing user', { cedula: cedulaString, userId: authUser.id });
+        return;
+    } else {
       // Si el usuario no existe en Supabase Auth, intentar crearlo
       logger.info('User not found in Supabase Auth, attempting to create', { cedula: cedulaString, email: user.correo });
       
@@ -170,7 +213,13 @@ export class AuthService {
           details: createError.message,
           meta: { cedula: cedulaString, email: user.correo }
         };
-        logger.error('Failed to create auth user', { cedula: cedulaString, email: user.correo, error: createError.message });
+        logger.error('Failed to create auth user', { 
+          cedula: cedulaString, 
+          email: user.correo, 
+          error: createError.message,
+          errorCode: createError.code,
+          fullError: createError
+        });
         throw error;
       }
       
