@@ -74,50 +74,79 @@ export async function POST(request: NextRequest) {
           <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Restablecer contraseña</title>
+            <title>Restablecer contraseña - ORPA Inversiones</title>
+            <style>
+              @media only screen and (max-width: 600px) {
+                .container { width: 100% !important; padding: 10px !important; }
+                .header { padding: 20px !important; }
+                .content { padding: 20px !important; }
+                .button { padding: 12px 24px !important; font-size: 14px !important; }
+              }
+            </style>
           </head>
-          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">ORPA Inversiones</h1>
-            </div>
-            
-            <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #ddd;">
-              <h2 style="color: #333; margin-top: 0;">Restablecer tu contraseña</h2>
-              
-              <p>Hola <strong>${usuario.nombre || 'Usuario'}</strong>,</p>
-              
-              <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta asociada a la cédula <strong>${usuario.cedula}</strong>.</p>
-              
-              <p>Si no solicitaste este cambio, puedes ignorar este correo. Tu contraseña no será modificada.</p>
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${resetUrl}" 
-                   style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                          color: white; 
-                          padding: 15px 30px; 
-                          text-decoration: none; 
-                          border-radius: 5px; 
-                          font-weight: bold; 
-                          display: inline-block;
-                          font-size: 16px;">
-                  Restablecer Contraseña
-                </a>
+          <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f6f6f6;">
+            <div class="container" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+              <!-- Header -->
+              <div class="header" style="background: linear-gradient(135deg, #000000 0%, #333333 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <h1 style="color: white; margin: 0; font-size: 32px; font-weight: bold; letter-spacing: 1px;">ORPA</h1>
+                <p style="color: #f8c327; margin: 5px 0 0 0; font-size: 16px; font-weight: 500;">Inversiones</p>
               </div>
               
-              <p style="font-size: 14px; color: #666;">
-                Este enlace expirará en 15 minutos por seguridad.
-              </p>
-              
-              <p style="font-size: 14px; color: #666;">
-                Si el botón no funciona, copia y pega este enlace en tu navegador:<br>
-                <a href="${resetUrl}" style="color: #667eea; word-break: break-all;">${resetUrl}</a>
-              </p>
-              
-              <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-              
-              <p style="font-size: 12px; color: #999; text-align: center;">
-                Este correo fue enviado automáticamente. Por favor no respondas a este mensaje.
-              </p>
+              <!-- Content -->
+              <div class="content" style="background: white; padding: 40px; border-radius: 0 0 12px 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                <h2 style="color: #333; margin-top: 0; font-size: 24px; font-weight: 600; text-align: center; margin-bottom: 30px;">Restablecer tu contraseña</h2>
+                
+                <p style="font-size: 16px; margin-bottom: 20px;">Hola <strong style="color: #b2570b;">${usuario.nombre1 ? (usuario.nombre1 + (usuario.apellido1 ? ' ' + usuario.apellido1 : '')) : 'Usuario'}</strong>,</p>
+                
+                <p style="font-size: 16px; margin-bottom: 20px;">Recibimos una solicitud para restablecer la contraseña de tu cuenta asociada a la cédula <strong style="color: #333;">${usuario.cedula}</strong>.</p>
+                
+                <p style="font-size: 16px; margin-bottom: 30px; color: #666;">Si no solicitaste este cambio, puedes ignorar este correo. Tu contraseña no será modificada.</p>
+                
+                <!-- Button -->
+                <div style="text-align: center; margin: 40px 0;">
+                  <a href="${resetUrl}" class="button"
+                     style="background: #f8c327; 
+                            color: #000; 
+                            padding: 16px 32px; 
+                            text-decoration: none; 
+                            border-radius: 8px; 
+                            font-weight: 600; 
+                            display: inline-block;
+                            font-size: 16px;
+                            transition: all 0.3s ease;
+                            box-shadow: 0 4px 12px rgba(248, 195, 39, 0.3);">
+                    🔐 Restablecer Contraseña
+                  </a>
+                </div>
+                
+                <!-- Info Box -->
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin: 30px 0;">
+                  <p style="margin: 0; font-size: 14px; color: #856404;">
+                    <strong>⏰ Importante:</strong> Este enlace expirará en <strong>15 minutos</strong> por seguridad.
+                  </p>
+                </div>
+                
+                <!-- Alternative Link -->
+                <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                  <p style="font-size: 14px; color: #666; margin: 0 0 10px 0;">Si el botón no funciona, copia y pega este enlace en tu navegador:</p>
+                  <p style="margin: 0;">
+                    <a href="${resetUrl}" style="color: #b2570b; word-break: break-all; font-size: 13px;">${resetUrl}</a>
+                  </p>
+                </div>
+                
+                <!-- Divider -->
+                <hr style="border: none; border-top: 2px solid #f0f0f0; margin: 40px 0 30px 0;">
+                
+                <!-- Footer Info -->
+                <div style="text-align: center;">
+                  <p style="font-size: 13px; color: #999; margin: 0 0 10px 0;">
+                    Este correo fue enviado automáticamente. Por favor no respondas a este mensaje.
+                  </p>
+                  <p style="font-size: 12px; color: #ccc; margin: 0;">
+                    © ${new Date().getFullYear()} ORPA Inversiones. Todos los derechos reservados.
+                  </p>
+                </div>
+              </div>
             </div>
           </body>
           </html>

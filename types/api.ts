@@ -21,6 +21,8 @@ export interface Usuario {
   correo: string;
   nombre?: string;
   apellido?: string;
+  nombre1?: string;
+  apellido1?: string;
   telefono?: string;
   created_at?: string;
   updated_at?: string;
