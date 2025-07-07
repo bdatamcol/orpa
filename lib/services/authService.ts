@@ -17,7 +17,7 @@ export class AuthService {
     
     // Usar service key si está disponible, sino usar anon key
     const isServiceKeyConfigured = this.config.supabase.serviceKey && 
-      this.config.supabase.serviceKey !== 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtaXJzdmF2cXJocXd6ZmxoYndnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDY2MzA4OSwiZXhwIjoyMDYwMjM5MDg5fQ.BbuU8tpvz4jyNGYg32k39h2vVJF4Ezi-IFaoR3DMPI8';
+      this.config.supabase.serviceKey.trim() !== '';
     
     const supabaseKey = isServiceKeyConfigured 
       ? this.config.supabase.serviceKey! 
@@ -100,5 +100,110 @@ export class AuthService {
     return user;
   }
 
+  /**
+   * Actualiza la contraseña de un usuario por su cédula
+   */
+  async updatePasswordByCedula(cedula: string, newPassword: string): Promise<void> {
+    const cedulaString = cedula.toString().trim();
+    
+    if (!this.validateCedula(cedulaString)) {
+      const error: AuthError = {
+        type: AuthErrorType.INVALID_CEDULA,
+        message: 'Formato de cédula inválido. Debe contener entre 8 y 10 dígitos.',
+        details: `Cédula recibida: ${cedulaString}`
+      };
+      throw error;
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      const error: AuthError = {
+        type: AuthErrorType.INVALID_PASSWORD,
+        message: 'La contraseña debe tener al menos 6 caracteres',
+        details: `Password length: ${newPassword?.length || 0}`
+      };
+      throw error;
+    }
+
+    logger.database('Updating password for user', { cedula: cedulaString });
+
+    // Primero verificar que el usuario existe
+    const user = await this.findUserByCedula(cedulaString);
+
+    // Buscar el usuario en Supabase Auth por email
+    logger.debug('Searching for user in Supabase Auth', { cedula: cedulaString, email: user.correo });
+    
+    const { data: authUsers, error: listError } = await this.supabase.auth.admin.listUsers();
+    
+    if (listError) {
+      const error: AuthError = {
+        type: AuthErrorType.DATABASE_ERROR,
+        message: 'Error al buscar usuarios en autenticación',
+        details: listError.message,
+        meta: { cedula: cedulaString }
+      };
+      logger.error('Failed to list users', { cedula: cedulaString, error: listError.message });
+      throw error;
+    }
+
+    logger.debug('Auth users found', { 
+      cedula: cedulaString, 
+      totalUsers: authUsers.users.length,
+      userEmails: authUsers.users.map(u => u.email).slice(0, 5) // Solo los primeros 5 para no saturar logs
+    });
+
+    const authUser = authUsers.users.find(u => u.email === user.correo);
+    
+    if (!authUser) {
+      // Si el usuario no existe en Supabase Auth, intentar crearlo
+      logger.info('User not found in Supabase Auth, attempting to create', { cedula: cedulaString, email: user.correo });
+      
+      const { data: newAuthUser, error: createError } = await this.supabase.auth.admin.createUser({
+        email: user.correo,
+        password: newPassword,
+        email_confirm: true
+      });
+      
+      if (createError) {
+        const error: AuthError = {
+          type: AuthErrorType.DATABASE_ERROR,
+          message: 'Error al crear usuario en el sistema de autenticación',
+          details: createError.message,
+          meta: { cedula: cedulaString, email: user.correo }
+        };
+        logger.error('Failed to create auth user', { cedula: cedulaString, email: user.correo, error: createError.message });
+        throw error;
+      }
+      
+      logger.info('Auth user created successfully', { cedula: cedulaString, email: user.correo, userId: newAuthUser.user.id });
+      return; // Password ya fue establecida durante la creación
+    }
+
+    logger.debug('Auth user found', { cedula: cedulaString, userId: authUser.id });
+
+    // Actualizar la contraseña usando el ID correcto del usuario
+    const { error: updateError } = await this.supabase.auth.admin.updateUserById(
+      authUser.id,
+      { password: newPassword }
+    );
+
+    if (updateError) {
+      const error: AuthError = {
+        type: AuthErrorType.DATABASE_ERROR,
+        message: 'Error al actualizar la contraseña',
+        details: updateError.message,
+        meta: { cedula: cedulaString, userId: authUser.id, updateError: updateError }
+      };
+      logger.error('Password update failed', { 
+        cedula: cedulaString, 
+        userId: authUser.id,
+        error: updateError.message,
+        errorCode: updateError.code,
+        fullError: updateError
+      });
+      throw error;
+    }
+
+    logger.info('Password updated successfully', { cedula: cedulaString });
+  }
 
 }

@@ -268,9 +268,17 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Aquí actualizarías la contraseña en la base de datos
-    // Por ahora solo simulamos el éxito
-    logger.info('Password reset completed', { cedula: tokenData.cedula });
+    // Actualizar la contraseña en la base de datos
+    try {
+      await authService.updatePasswordByCedula(tokenData.cedula, newPassword);
+      logger.info('Password reset completed', { cedula: tokenData.cedula });
+    } catch (error: any) {
+      logger.error('Failed to update password', { cedula: tokenData.cedula, error: error.message });
+      return NextResponse.json(
+        { success: false, error: error.message || 'Error al actualizar la contraseña' },
+        { status: 500 }
+      );
+    }
     
     // Eliminar token usado
     resetTokens.delete(token);
