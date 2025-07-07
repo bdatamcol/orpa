@@ -17,6 +17,42 @@ export default function Reportes() {
     descripcion: "",
     informacion_contacto: "",
   })
+  const [estadisticas, setEstadisticas] = useState({
+    total: 0,
+    resueltos: 0,
+    pendientes: 0,
+    porcentajeResueltos: 0
+  })
+
+
+  const fetchEstadisticas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("reporte_fallas")
+        .select("estado")
+
+      if (error) {
+        console.error("Error al obtener estadísticas:", error)
+        return
+      }
+
+      const total = data?.length || 0
+      const resueltos = data?.filter(reporte => reporte.estado === "resuelto").length || 0
+      const pendientes = data?.filter(reporte => reporte.estado === "pendiente").length || 0
+      const porcentajeResueltos = total > 0 ? Math.round((resueltos / total) * 100) : 0
+
+      setEstadisticas({
+        total,
+        resueltos,
+        pendientes,
+        porcentajeResueltos
+      })
+    } catch (err) {
+      console.error("Error al cargar estadísticas:", err)
+    }
+  }
+
+
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -34,6 +70,9 @@ export default function Reportes() {
           ...prev,
           informacion_contacto: data.user.email || ""
         }))
+        
+        // Cargar estadísticas
+        await fetchEstadisticas()
       } catch (err: any) {
         setError(err.message)
       } finally {
@@ -79,6 +118,9 @@ export default function Reportes() {
         descripcion: "",
         informacion_contacto: user?.email || "",
       })
+      
+      // Actualizar estadísticas después de enviar el reporte
+      await fetchEstadisticas()
     } catch (err: any) {
       setError("Error al enviar el reporte. Por favor, intente de nuevo.")
     } finally {
@@ -219,7 +261,7 @@ export default function Reportes() {
       {/* Contenido principal */}
       <main className="pt-16 lg:pt-0 lg:ml-64">
         <div className="p-4 md:p-6">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-[90%] mx-auto">
             {/* Breadcrumb */}
             <div className="mb-6 flex items-center text-sm text-gray-500">
               <a href="/" className="hover:text-gray-700">
@@ -244,124 +286,194 @@ export default function Reportes() {
               <p className="text-gray-600">Ayúdanos a mejorar reportando cualquier problema que encuentres en la plataforma.</p>
             </div>
 
-            {/* Mensajes de estado */}
-            {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 text-red-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="text-red-700">{error}</p>
+
+
+            {/* Layout de 2 columnas */}
+            <div className="flex flex-col lg:flex-row gap-8">
+              {/* Columna izquierda - Formulario */}
+              <div className="flex-1 lg:max-w-2xl">
+                {/* Mensajes de estado */}
+                {error && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-red-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-red-700">{error}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Formulario de reporte */}
+                <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                  <div className="p-6">
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                      {/* Tipo de falla */}
+                      <div>
+                        <label htmlFor="tipo_falla" className="block text-sm font-medium text-gray-700 mb-2">
+                          Tipo de Falla *
+                        </label>
+                        <select
+                          id="tipo_falla"
+                          name="tipo_falla"
+                          value={reporteData.tipo_falla}
+                          onChange={handleInputChange}
+                          required
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:border-transparent"
+                        >
+                          <option value="">Selecciona el tipo de falla</option>
+                          <option value="error_sistema">Error del Sistema</option>
+                          <option value="problema_acceso">Problema de Acceso</option>
+                          <option value="error_datos">Error en Datos</option>
+                          <option value="problema_interfaz">Problema de Interfaz</option>
+                          <option value="lentitud">Lentitud del Sistema</option>
+                          <option value="otro">Otro</option>
+                        </select>
+                      </div>
+
+                      {/* Descripción */}
+                      <div>
+                        <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 mb-2">
+                          Descripción del Problema *
+                        </label>
+                        <textarea
+                          id="descripcion"
+                          name="descripcion"
+                          value={reporteData.descripcion}
+                          onChange={handleInputChange}
+                          required
+                          rows={5}
+                          placeholder="Describe detalladamente el problema que experimentaste. Incluye los pasos que seguiste y cualquier mensaje de error que hayas visto."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:border-transparent resize-vertical"
+                        />
+                      </div>
+
+                      {/* Información de contacto */}
+                      <div>
+                        <label htmlFor="informacion_contacto" className="block text-sm font-medium text-gray-700 mb-2">
+                          Información de Contacto *
+                        </label>
+                        <input
+                          id="informacion_contacto"
+                          name="informacion_contacto"
+                          type="email"
+                          value={reporteData.informacion_contacto}
+                          onChange={handleInputChange}
+                          required
+                          placeholder="tu@email.com"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:border-transparent"
+                        />
+                        <p className="text-sm text-gray-500 mt-1">
+                          Usaremos esta información para contactarte sobre el estado de tu reporte.
+                        </p>
+                      </div>
+
+                      {/* Botón de envío */}
+                      <div className="flex justify-end pt-4">
+                        <button
+                          type="submit"
+                          disabled={submitting}
+                          className="px-6 py-3 bg-[#f8c327] text-black font-medium rounded-2xl hover:bg-[#fad64f] focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                        >
+                          {submitting ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-2xl animate-spin mr-2"></div>
+                              Enviando...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                              </svg>
+                              Enviar Reporte
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
               </div>
-            )}
 
+              {/* Columna derecha - Estadísticas e Información */}
+              <div className="flex-1 space-y-6">
+                {/* Estadísticas de Reportes */}
+                <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                  <div className="p-6">
+                    <h2 className="text-xl font-bold text-gray-900 mb-6">Estadísticas del Sistema</h2>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      {/* Total de Reportes */}
+                      <div className="flex-1 bg-gray-50 rounded-lg p-4">
+                        <div className="flex items-center">
+                          <div className="p-3 rounded-full bg-blue-100">
+                            <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div className="ml-4">
+                            <p className="text-sm font-medium text-gray-600">Total de Reportes</p>
+                            <p className="text-2xl font-bold text-gray-900">{estadisticas.total}</p>
+                          </div>
+                        </div>
+                      </div>
 
+                      {/* Reportes Resueltos */}
+                      <div className="flex-1 bg-gray-50 rounded-lg p-4">
+                        <div className="flex items-center">
+                          <div className="p-3 rounded-full bg-green-100">
+                            <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="ml-4">
+                            <p className="text-sm font-medium text-gray-600">Reportes Resueltos</p>
+                            <p className="text-2xl font-bold text-gray-900">{estadisticas.resueltos}</p>
+                            <p className="text-sm text-green-600 font-medium">{estadisticas.porcentajeResueltos}% de efectividad</p>
+                          </div>
+                        </div>
+                      </div>
 
-            {/* Formulario de reporte */}
-            <div className="bg-white rounded-xl shadow-md overflow-hidden">
-              <div className="p-6">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Tipo de falla */}
-                  <div>
-                    <label htmlFor="tipo_falla" className="block text-sm font-medium text-gray-700 mb-2">
-                      Tipo de Falla *
-                    </label>
-                    <select
-                      id="tipo_falla"
-                      name="tipo_falla"
-                      value={reporteData.tipo_falla}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:border-transparent"
-                    >
-                      <option value="">Selecciona el tipo de falla</option>
-                      <option value="error_sistema">Error del Sistema</option>
-                      <option value="problema_acceso">Problema de Acceso</option>
-                      <option value="error_datos">Error en Datos</option>
-                      <option value="problema_interfaz">Problema de Interfaz</option>
-                      <option value="lentitud">Lentitud del Sistema</option>
-                      <option value="otro">Otro</option>
-                    </select>
+                      {/* Reportes Pendientes */}
+                      <div className="flex-1 bg-gray-50 rounded-lg p-4">
+                        <div className="flex items-center">
+                          <div className="p-3 rounded-full bg-yellow-100">
+                            <svg className="w-6 h-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="ml-4">
+                            <p className="text-sm font-medium text-gray-600">En Proceso</p>
+                            <p className="text-2xl font-bold text-gray-900">{estadisticas.pendientes}</p>
+                            <p className="text-sm text-yellow-600 font-medium">Trabajando en ello</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+                </div>
 
-                  {/* Descripción */}
-                  <div>
-                    <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 mb-2">
-                      Descripción del Problema *
-                    </label>
-                    <textarea
-                      id="descripcion"
-                      name="descripcion"
-                      value={reporteData.descripcion}
-                      onChange={handleInputChange}
-                      required
-                      rows={5}
-                      placeholder="Describe detalladamente el problema que experimentaste. Incluye los pasos que seguiste y cualquier mensaje de error que hayas visto."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:border-transparent resize-vertical"
-                    />
+
+
+                {/* Información adicional */}
+                <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                  <div className="p-6">
+                    <div className="flex items-start">
+                      <div className="p-2 rounded-full bg-blue-100 mr-4">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">¿Cómo funciona?</h3>
+                        <ul className="text-sm text-gray-700 space-y-1">
+                          <li>• Tu reporte será revisado por nuestro equipo técnico</li>
+                          <li>• Te contactaremos por email para informarte sobre el progreso</li>
+                          <li>• Los reportes se procesan en orden de prioridad</li>
+                          <li>• Tiempo estimado de respuesta: 24-48 horas</li>
+                        </ul>
+                      </div>
+                    </div>
                   </div>
-
-                  {/* Información de contacto */}
-                  <div>
-                    <label htmlFor="informacion_contacto" className="block text-sm font-medium text-gray-700 mb-2">
-                      Información de Contacto *
-                    </label>
-                    <input
-                      id="informacion_contacto"
-                      name="informacion_contacto"
-                      type="email"
-                      value={reporteData.informacion_contacto}
-                      onChange={handleInputChange}
-                      required
-                      placeholder="tu@email.com"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:border-transparent"
-                    />
-                    <p className="text-sm text-gray-500 mt-1">
-                      Usaremos esta información para contactarte sobre el estado de tu reporte.
-                    </p>
-                  </div>
-
-                  {/* Botón de envío */}
-                  <div className="flex justify-end pt-4">
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="px-6 py-3 bg-[#f8c327] text-black font-medium rounded-lg hover:bg-[#fad64f] focus:outline-none focus:ring-2 focus:ring-[#f8c327] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                    >
-                      {submitting ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2"></div>
-                          Enviando...
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                          </svg>
-                          Enviar Reporte
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-
-            {/* Información adicional */}
-            <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <div className="flex items-start">
-                <svg className="w-6 h-6 text-blue-500 mr-3 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <h3 className="text-lg font-medium text-blue-900 mb-2">¿Cómo funciona?</h3>
-                  <ul className="text-blue-800 space-y-1 text-sm">
-                    <li>• Tu reporte será revisado por nuestro equipo técnico</li>
-                    <li>• Te contactaremos por email para informarte sobre el progreso</li>
-                    <li>• Los reportes se procesan en orden de prioridad</li>
-                    <li>• Tiempo estimado de respuesta: 24-48 horas</li>
-                  </ul>
                 </div>
               </div>
             </div>
